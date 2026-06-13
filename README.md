@@ -75,3 +75,7 @@ make demo-status     # Etat global Vault
 | [07 - Observabilité](docs/07-observabilite.md) | Prometheus + Grafana, métriques, dashboard |
 | [08 - Sources](docs/08-sources.md) | Références et bibliographie |
 | [09 - Vault référence](docs/09-vault-reference.md) | Guide opérateur complet Vault |
+
+## Auteur
+- Projet réalisé par Thomas FAUROUX
+- Mastère Expert en cloud, sécurité & infrastructure (2024-2026)
