@@ -23,6 +23,7 @@
   environment:
     VAULT_ADDR: "{{ vault_addr }}"
   register: vault_init_raw
+  changed_when: vault_init_raw.rc == 0
   when: not vault_status.initialized
 
 - name: Save init output to file
@@ -36,7 +37,7 @@
 # ── Unseal ────────────────────────────────────────────────────────────────────
 
 - name: Read init file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ vault_init_file }}"
   register: vault_init_slurp
 

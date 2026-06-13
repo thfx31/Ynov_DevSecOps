@@ -1,5 +1,10 @@
 ---
-- import_tasks: install.yml
-- import_tasks: pam.yml
-- import_tasks: postgresql.yml
+- name: Install vault-ssh-helper
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure PAM
+  ansible.builtin.import_tasks: pam.yml
+
+- name: Configure PostgreSQL
+  ansible.builtin.import_tasks: postgresql.yml
   when: inventory_hostname == 'workload-a'

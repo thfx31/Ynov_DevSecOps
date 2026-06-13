@@ -1,4 +1,9 @@
 ---
-- import_tasks: install.yml
-- import_tasks: configure.yml
-- import_tasks: bootstrap.yml
+- name: Install SPIRE server
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure SPIRE server
+  ansible.builtin.import_tasks: configure.yml
+
+- name: Bootstrap SPIRE server
+  ansible.builtin.import_tasks: bootstrap.yml

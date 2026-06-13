@@ -20,7 +20,7 @@
     owner: vault
     group: vault
     mode: "0640"
-  notify: restart vault
+  notify: Restart vault
 
 - name: Set VAULT_ADDR in /etc/environment
   ansible.builtin.lineinfile:

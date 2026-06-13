@@ -4,7 +4,7 @@
     src: boundary-dev.service.j2
     dest: /etc/systemd/system/boundary-dev.service
     mode: "0644"
-  notify: restart boundary-dev
+  notify: Restart boundary-dev
 
 - name: Enable and start boundary dev
   ansible.builtin.systemd:

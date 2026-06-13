@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  # ── Lint Terraform ──────────────────────────────────────────────────────────
+  # Lint Terraform
   terraform-lint:
     name: Terraform Lint
     runs-on: ubuntu-latest
@@ -26,7 +26,7 @@ jobs:
         run: tflint --format=compact
         working-directory: terraform
 
-  # ── Checkov - IaC security scan ────────────────────────────────────────────
+  # Checkov - IaC security scan 
   checkov:
     name: Checkov IaC Security
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ jobs:
           framework: ansible
           soft_fail: true
 
-  # ── Ansible Lint ───────────────────────────────────────────────────────────
+  # Ansible Lint 
   ansible-lint:
     name: Ansible Lint
     runs-on: ubuntu-latest
@@ -60,12 +60,15 @@ jobs:
       - name: Install ansible-lint
         run: pip install ansible-lint
 
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install community.general community.postgresql
+
       - name: Run ansible-lint
         run: ansible-lint ansible/playbooks/
         env:
           ANSIBLE_ROLES_PATH: ansible/roles
 
-  # ── Semgrep - SAST ─────────────────────────────────────────────────────────
+  #  Semgrep - SAST 
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
@@ -83,7 +86,7 @@ jobs:
           --exclude='*.tfstate.backup'
           .
 
-  # ── Trivy - CVE scan image de base Packer ──────────────────────────────────
+  # Trivy - CVE scan image de base Packer 
   #
   # Contrainte d'infrastructure : les runners GitHub Actions (Linux) n'ont pas
   # la virtualisation imbriquée (nested virt / KVM). Packer ne peut donc pas
@@ -109,7 +112,7 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
 
-  # ── OWASP ZAP - DAST baseline ──────────────────────────────────────────────
+  # OWASP ZAP - DAST baseline 
   zap:
     name: OWASP ZAP DAST
     runs-on: ubuntu-latest
@@ -132,7 +135,7 @@ jobs:
         if: always()
         run: docker stop demo-app || true
 
-  # ── Cosign - signature keyless ─────────────────────────────────────────────
+  # Cosign - signature keyless 
   #
   # Signe l'image ubuntu:24.04 taguée avec le SHA du commit pour démontrer
   # le pattern de signature keyless OIDC. En production, on signerait l'image

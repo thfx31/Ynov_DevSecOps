@@ -16,7 +16,7 @@
     src: server.conf.j2
     dest: "{{ spire_conf_dir }}/server/server.conf"
     mode: "0644"
-  notify: restart spire-server
+  notify: Restart spire-server
 
 - name: Deploy SPIRE server systemd service
   ansible.builtin.template:
@@ -24,7 +24,7 @@
     src: spire-server.service.j2
     dest: /etc/systemd/system/spire-server.service
     mode: "0644"
-  notify: restart spire-server
+  notify: Restart spire-server
 
 - name: Allow SPIRE port from workloads
   community.general.ufw:

@@ -77,8 +77,8 @@ source ~/.virtualenvs/ansible/bin/activate
 # Installer Ansible + collections nécessaires
 pip install ansible ansible-lint
 
-# Collections community (ufw, etc.)
-ansible-galaxy collection install community.general
+# Collections community (ufw, postgresql, etc.)
+ansible-galaxy collection install community.general community.postgresql
 
 # Vérifier
 ansible --version

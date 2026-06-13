@@ -1,5 +1,5 @@
 ---
-- name: restart spire-server
+- name: Restart spire-server
   ansible.builtin.systemd:
 
     name: spire-server

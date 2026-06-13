@@ -1,3 +1,6 @@
 ---
-- import_tasks: install.yml
-- import_tasks: configure.yml
+- name: Install SPIRE agent
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure SPIRE agent
+  ansible.builtin.import_tasks: configure.yml

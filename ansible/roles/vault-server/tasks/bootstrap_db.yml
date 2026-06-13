@@ -2,7 +2,7 @@
 # Configuré en Play 3, après que PostgreSQL soit installé sur workload-a
 
 - name: Read Vault init file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ vault_init_file }}"
   register: vault_init_slurp
 

@@ -7,7 +7,7 @@
     regexp: '^#?KbdInteractiveAuthentication'
     line: 'KbdInteractiveAuthentication yes'
     validate: '/usr/sbin/sshd -t -f %s'
-  notify: restart sshd
+  notify: Restart sshd
 
 - name: Ensure UsePAM is enabled
   ansible.builtin.lineinfile:
@@ -16,7 +16,7 @@
     regexp: '^#?UsePAM'
     line: 'UsePAM yes'
     validate: '/usr/sbin/sshd -t -f %s'
-  notify: restart sshd
+  notify: Restart sshd
 
 # Remplace @include common-auth par pam_exec (vault-ssh-helper) + pam_unix fallback
 - name: Configure PAM sshd for vault-ssh-helper
@@ -30,7 +30,7 @@
       auth optional pam_unix.so not_set_pass use_first_pass nodelay
 
 - name: Comment out @include common-auth (replaced by vault-ssh-helper)
-  replace:
+  ansible.builtin.replace:
     path: /etc/pam.d/sshd
     regexp: '^(@include common-auth)$'
     replace: '# \1 - disabled: vault-ssh-helper handles auth'

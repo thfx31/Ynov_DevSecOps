@@ -1,11 +1,11 @@
 ---
-- name: restart sshd
+- name: Restart sshd
   ansible.builtin.systemd:
 
     name: ssh
     state: restarted
 
-- name: restart postgresql
+- name: Restart postgresql
   ansible.builtin.systemd:
 
     name: postgresql
