@@ -1,47 +1,74 @@
-BOUNDARY_ADDR := http://127.0.0.1:9200
+BOUNDARY_ADDR     := http://127.0.0.1:9200
 BOUNDARY_AUTH_METHOD := ampw_1234567890
 BOUNDARY_PROJECT  := p_1234567890
-
-BOUNDARY_TOKEN := $(shell BOUNDARY_PASSWORD=password boundary authenticate password \
-                    -auth-method-id=$(BOUNDARY_AUTH_METHOD) \
-                    -login-name=admin \
-                    -password=env://BOUNDARY_PASSWORD \
-                    -format=json 2>/dev/null | jq -r '.item.attributes.token // empty')
+VAULT_ADDR        := http://10.0.0.10:8200
+SSH_KEY           := ~/.ssh/devsecops
+VAULT_SERVER      := ubuntu@10.0.0.10
+WORKLOAD_A        := ubuntu@10.0.0.20
 
 export BOUNDARY_ADDR
-export BOUNDARY_TOKEN
-
-VAULT_ADDR   := http://10.0.0.10:8200
-SSH_KEY      := ~/.ssh/devsecops
-VAULT_SERVER := ubuntu@10.0.0.10
-WORKLOAD_A   := ubuntu@10.0.0.20
-
-VAULT_TOKEN  := $(shell ssh -i $(SSH_KEY) $(VAULT_SERVER) \
-                  'sudo cat /root/vault-init.json' 2>/dev/null | jq -r .root_token)
-
 export VAULT_ADDR
-export VAULT_TOKEN
+
+# VAULT_TOKEN et BOUNDARY_TOKEN sont évalués à la demande dans chaque cible
+# pour éviter un SSH/authenticate au simple `make help`
+vault-token = $(shell ssh -i $(SSH_KEY) $(VAULT_SERVER) \
+                'sudo cat /root/vault-init.json' 2>/dev/null | jq -r .root_token)
+boundary-token = $(shell BOUNDARY_PASSWORD=password boundary authenticate password \
+                   -auth-method-id=$(BOUNDARY_AUTH_METHOD) \
+                   -login-name=admin \
+                   -password=env://BOUNDARY_PASSWORD \
+                   -format=json 2>/dev/null | jq -r '.item.attributes.token // empty')
+
+# ── Vérification rapide avant démo ───────────────────────────────────────────
+
+.PHONY: check
+
+check: ## Go/no-go rapide : VMs + Vault + Prometheus + SPIRE agents
+	@echo ""
+	@echo "=== Connectivité VMs ==="
+	@for ip in 10.0.0.10 10.0.0.11 10.0.0.20 10.0.0.21; do \
+	  printf "  $$ip: "; ping -c1 -W1 $$ip >/dev/null 2>&1 && echo "✓" || echo "✗ KO"; \
+	done
+	@echo ""
+	@echo "=== Vault ==="
+	@VAULT_TOKEN=$(call vault-token) VAULT_ADDR=$(VAULT_ADDR) \
+	  vault status 2>/dev/null | grep -E "Initialized|Sealed" | sed 's/^/  /' \
+	  || echo "  ✗ Vault non joignable"
+	@echo ""
+	@echo "=== Prometheus targets ==="
+	@curl -s http://localhost:9090/api/v1/targets 2>/dev/null \
+	  | jq -r '.data.activeTargets[] | "  \(.labels.job): \(.health)"' \
+	  || echo "  ✗ Prometheus non joignable (make obs-up ?)"
+	@echo ""
+	@echo "=== SPIRE agents ==="
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
+	  'sudo /opt/spire/bin/spire-server agent list \
+	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null \
+	   | grep -c "SPIFFE ID"' 2>/dev/null \
+	  | xargs -I{} echo "  {} agent(s) attesté(s)" \
+	  || echo "  ✗ SPIRE non joignable"
+	@echo ""
 
 # ── Démo soutenance ───────────────────────────────────────────────────────────
 
-.PHONY: demo-otp demo-db demo-transit demo-status
+.PHONY: demo-otp demo-db demo-transit demo-status demo-boundary
 
 demo-otp: ## Génère un OTP SSH pour workload-a
 	@echo ""
 	@echo "=== Vault SSH OTP ==="
 	@echo "Connexion sans clé SSH - mot de passe à usage unique"
 	@echo ""
-	vault write ssh/creds/otp-role ip=10.0.0.20
+	@VAULT_TOKEN=$(call vault-token) vault write ssh/creds/otp-role ip=10.0.0.20
 	@echo ""
-	@echo "→ Connecte-toi avec : ssh -o PubkeyAuthentication=no -o PreferredAuthentications=keyboard-interactive $(WORKLOAD_A)"
-	@echo "→ Rejoue le même OTP : Permission denied"
+	@echo "→ ssh -o PubkeyAuthentication=no -o PreferredAuthentications=keyboard-interactive $(WORKLOAD_A)"
+	@echo "→ Rejoue le même OTP → Permission denied"
 
 demo-db: ## Génère des credentials PostgreSQL dynamiques
 	@echo ""
 	@echo "=== Vault DB Dynamic Secrets ==="
 	@echo "Credentials éphémères PostgreSQL (TTL 1h)"
 	@echo ""
-	vault read database/creds/app-role
+	@VAULT_TOKEN=$(call vault-token) vault read database/creds/app-role
 	@echo ""
 	@echo "→ Ces credentials n'existent pas dans un fichier de config."
 	@echo "→ Vault les révoque automatiquement à expiration."
@@ -50,27 +77,40 @@ demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	@echo ""
 	@echo "=== Vault Transit - Chiffrement as a Service ==="
 	@echo ""
-	$(eval CIPHER := $(shell vault write -field=ciphertext transit/encrypt/app-key \
-	  plaintext=$$(echo -n "IBAN-FR7612345678" | base64)))
-	@echo "Plaintext  : IBAN-FR7612345678"
-	@echo "Ciphertext : $(CIPHER)"
-	@echo ""
-	$(eval PLAIN := $(shell vault write -field=plaintext transit/decrypt/app-key \
-	  ciphertext="$(CIPHER)" | base64 -d))
-	@echo "Déchiffré  : $(PLAIN)"
-	@echo ""
-	@echo "→ La clé ne quitte jamais Vault. Le dump DB est illisible sans accès Vault."
+	@TOKEN=$(call vault-token); \
+	 CIPHER=$$(VAULT_TOKEN=$$TOKEN vault write -field=ciphertext transit/encrypt/app-key \
+	   plaintext=$$(echo -n "IBAN-FR7612345678" | base64)); \
+	 echo "Plaintext  : IBAN-FR7612345678"; \
+	 echo "Ciphertext : $$CIPHER"; \
+	 echo ""; \
+	 PLAIN=$$(VAULT_TOKEN=$$TOKEN vault write -field=plaintext transit/decrypt/app-key \
+	   ciphertext="$$CIPHER" | base64 -d); \
+	 echo "Déchiffré  : $$PLAIN"; \
+	 echo ""; \
+	 echo "→ La clé ne quitte jamais Vault. Le dump DB est illisible sans accès Vault."
 
-demo-status: ## Etat général de la plateforme Vault
+demo-status: ## Etat général de la plateforme (Vault + SPIRE + Boundary)
 	@echo ""
-	@echo "=== Vault Status ==="
-	vault status
+	@echo "=== Vault ==="
+	@VAULT_TOKEN=$(call vault-token) vault status
 	@echo ""
-	@echo "=== Engines actifs ==="
-	vault secrets list
+	@VAULT_TOKEN=$(call vault-token) vault secrets list
 	@echo ""
-	@echo "=== Auth methods ==="
-	vault auth list
+	@VAULT_TOKEN=$(call vault-token) vault auth list
+
+demo-boundary: ## Connexion SSH via Boundary à workload-a (sans IP directe)
+	@echo ""
+	@echo "=== Boundary - Accès zero-trust ==="
+	@echo "Targets disponibles :"
+	@BOUNDARY_TOKEN=$(call boundary-token) boundary targets list \
+	  -scope-id=$(BOUNDARY_PROJECT) -format=json \
+	  | jq -r '.items[] | "  \(.name) → \(.id)"'
+	@echo ""
+	@echo "→ Connexion à workload-a via Boundary (l'IP 10.0.0.20 n'est jamais exposée)..."
+	@BOUNDARY_TOKEN=$(call boundary-token) boundary connect ssh \
+	  -target-name=workload-a \
+	  -target-scope-id=$(BOUNDARY_PROJECT) \
+	  -- -l ubuntu -i $(SSH_KEY)
 
 # ── Opérations courantes ──────────────────────────────────────────────────────
 
@@ -84,22 +124,51 @@ vault-unseal: ## Unseal Vault après un reboot
 vault-logs: ## Tail du log d'audit Vault
 	ssh -i $(SSH_KEY) $(VAULT_SERVER) 'sudo tail -f /var/log/vault/audit.log | jq .'
 
+# ── SPIRE ─────────────────────────────────────────────────────────────────────
+
+.PHONY: spire-status
+
+spire-status: ## Etat SPIRE : agents attestés + registration entries
+	@echo ""
+	@echo "=== SPIRE server ==="
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 'sudo systemctl is-active spire-server' \
+	  | xargs -I{} echo "  spire-server: {}"
+	@echo ""
+	@echo "=== Agents attestés ==="
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
+	  'sudo /opt/spire/bin/spire-server agent list \
+	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
+	  | grep "SPIFFE ID" | sed 's/^/  /'
+	@echo ""
+	@echo "=== Registration entries ==="
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
+	  'sudo /opt/spire/bin/spire-server entry show \
+	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
+	  | grep "SPIFFE ID\|Selector" | sed 's/^/  /'
+	@echo ""
+	@echo "=== Agents sur workloads ==="
+	@for ip in 10.0.0.20 10.0.0.21; do \
+	  printf "  $$ip spire-agent: "; \
+	  ssh -i $(SSH_KEY) ubuntu@$$ip 'sudo systemctl is-active spire-agent' 2>/dev/null || echo "KO"; \
+	done
+	@echo ""
+
 # ── Infrastructure ────────────────────────────────────────────────────────────
 
 .PHONY: infra-up infra-down infra-status
 
 infra-up: ## Démarrer les VMs (après reboot host)
-	for vm in vault-server spire-server workload-a workload-b; do \
+	@for vm in vault-server spire-server workload-a workload-b; do \
 	  sudo virsh start $$vm 2>/dev/null || true; \
 	done
-	@echo "Attente démarrage VMs..."
-	@sleep 20
+	@echo "Attente démarrage VMs (30s)..."
+	@sleep 30
 	@for ip in 10.0.0.10 10.0.0.11 10.0.0.20 10.0.0.21; do \
-	  printf "$$ip: "; ping -c1 -W2 $$ip >/dev/null 2>&1 && echo "ok" || echo "KO"; \
+	  printf "  $$ip: "; ping -c1 -W2 $$ip >/dev/null 2>&1 && echo "ok" || echo "KO"; \
 	done
 
 infra-down: ## Arrêter les VMs proprement
-	for vm in vault-server spire-server workload-a workload-b; do \
+	@for vm in vault-server spire-server workload-a workload-b; do \
 	  sudo virsh shutdown $$vm 2>/dev/null || true; \
 	done
 
@@ -109,7 +178,7 @@ infra-status: ## Etat des VMs et connectivité
 	@echo ""
 	@echo "=== Ping ==="
 	@for ip in 10.0.0.10 10.0.0.11 10.0.0.20 10.0.0.21; do \
-	  printf "$$ip: "; ping -c1 -W1 $$ip >/dev/null 2>&1 && echo "ok" || echo "KO"; \
+	  printf "  $$ip: "; ping -c1 -W1 $$ip >/dev/null 2>&1 && echo "ok" || echo "KO"; \
 	done
 
 # ── Observabilité ────────────────────────────────────────────────────────────
@@ -129,40 +198,35 @@ obs-status: ## Etat des conteneurs d'observabilité
 
 # ── Boundary ─────────────────────────────────────────────────────────────────
 
-.PHONY: demo-boundary boundary-status boundary-targets
-
-demo-boundary: ## Connexion SSH via Boundary à workload-a (sans IP directe)
-	@echo ""
-	@echo "=== Boundary - Accès zero-trust ==="
-	@echo "Targets disponibles :"
-	@boundary targets list -scope-id=$(BOUNDARY_PROJECT) -format=json \
-	  | jq -r '.items[] | "  \(.name) (port \(.default_port // "22")) → \(.id)"'
-	@echo ""
-	@echo "→ Connexion à workload-a via Boundary (l'IP 10.0.0.20 n'est jamais exposée)..."
-	boundary connect ssh \
-	  -target-name=workload-a \
-	  -target-scope-id=$(BOUNDARY_PROJECT) \
-	  -- -l ubuntu -i $(SSH_KEY)
+.PHONY: boundary-status boundary-targets
 
 boundary-targets: ## Lister les targets Boundary et leurs IDs
-	@boundary targets list -scope-id=$(BOUNDARY_PROJECT) -format=json \
+	@BOUNDARY_TOKEN=$(call boundary-token) boundary targets list \
+	  -scope-id=$(BOUNDARY_PROJECT) -format=json \
 	  | jq -r '.items[] | "  \(.name)\t\(.id)\t\(.address)"'
 
 boundary-status: ## Etat du service Boundary et connectivité API
 	@echo "=== Service ==="
-	@systemctl is-active boundary-dev && echo "boundary-dev: actif" || echo "boundary-dev: inactif"
+	@systemctl is-active boundary-dev 2>/dev/null && echo "  boundary-dev: actif" || echo "  boundary-dev: inactif"
 	@echo ""
 	@echo "=== API ==="
-	@curl -sf http://127.0.0.1:9200/v1/health | jq -r '"status: " + .status' 2>/dev/null || echo "API non joignable"
+	@curl -sf http://127.0.0.1:9200/v1/health | jq -r '"  status: " + .status' 2>/dev/null \
+	  || echo "  API non joignable"
 
 # ── Ansible ───────────────────────────────────────────────────────────────────
 
-.PHONY: deploy-vault deploy-all
+.PHONY: deploy-vault deploy-spire deploy-boundary deploy-all
 
 deploy-vault: ## Déployer / re-déployer le bloc Vault
 	cd ansible && ansible-playbook playbooks/vault.yml -v
 
-deploy-all: ## Déployer tous les blocs (site.yml)
+deploy-spire: ## Déployer / re-déployer le bloc SPIRE
+	cd ansible && ansible-playbook playbooks/spire.yml -v
+
+deploy-boundary: ## Déployer / re-déployer le bloc Boundary
+	cd ansible && ansible-playbook playbooks/boundary.yml -v
+
+deploy-all: ## Déployer tous les blocs dans l'ordre (site.yml)
 	cd ansible && ansible-playbook playbooks/site.yml -v
 
 # ── Aide ──────────────────────────────────────────────────────────────────────
