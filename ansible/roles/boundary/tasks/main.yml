@@ -1,4 +1,9 @@
 ---
-- ansible.builtin.import_tasks: install.yml
-- ansible.builtin.import_tasks: configure.yml
-- ansible.builtin.import_tasks: bootstrap.yml
+- name: Install Boundary
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure Boundary
+  ansible.builtin.import_tasks: configure.yml
+
+- name: Bootstrap Boundary
+  ansible.builtin.import_tasks: bootstrap.yml

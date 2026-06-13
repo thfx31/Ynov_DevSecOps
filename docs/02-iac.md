@@ -77,6 +77,7 @@ echo "ssh_public_key = \"$(cat ~/.ssh/devsecops.pub)\"" > terraform/terraform.tf
 ```bash
 cd terraform
 terraform init
+terraform plan
 terraform apply
 ```
 

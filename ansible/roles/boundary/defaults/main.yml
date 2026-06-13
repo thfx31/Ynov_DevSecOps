@@ -12,5 +12,5 @@ boundary_admin_login: admin
 boundary_admin_password: password
 
 boundary_targets:
-  - { name: workload-a, address: "10.0.0.20", port: 22 }
-  - { name: workload-b, address: "10.0.0.21", port: 22 }
+  - {name: workload-a, address: "10.0.0.20", port: 22}
+  - {name: workload-b, address: "10.0.0.21", port: 22}

@@ -4,6 +4,9 @@
 # Le hardening CIS L1 est baked dans l'image Packer - Ansible configure les services uniquement.
 # Pour redéployer un seul bloc : ansible-playbook playbooks/vault.yml (ou spire.yml, boundary.yml).
 
-- import_playbook: vault.yml
-- import_playbook: spire.yml
-- import_playbook: boundary.yml
+- name: Deploy Vault
+  ansible.builtin.import_playbook: vault.yml
+- name: Deploy SPIRE
+  ansible.builtin.import_playbook: spire.yml
+- name: Deploy Boundary
+  ansible.builtin.import_playbook: boundary.yml

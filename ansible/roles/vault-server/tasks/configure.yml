@@ -8,9 +8,9 @@
     group: vault
     mode: "{{ item.mode }}"
   loop:
-    - { path: "{{ vault_data_dir }}", mode: "0700" }
-    - { path: "{{ vault_log_dir }}", mode: "0755" }
-    - { path: "{{ vault_config_dir }}", mode: "0755" }
+    - {path: "{{ vault_data_dir }}", mode: "0700"}
+    - {path: "{{ vault_log_dir }}", mode: "0755"}
+    - {path: "{{ vault_config_dir }}", mode: "0755"}
 
 - name: Deploy Vault configuration
   ansible.builtin.template:
@@ -50,7 +50,7 @@
   ansible.builtin.meta: flush_handlers
 
 - name: Wait for Vault to be ready
-  uri:
+  ansible.builtin.uri:
     url: "{{ vault_addr }}/v1/sys/health"
     status_code: [200, 429, 472, 473, 501, 503]
     validate_certs: false

@@ -46,11 +46,11 @@
     BOUNDARY_TOKEN: "{{ boundary_token }}"
   loop: "{{ boundary_targets }}"
   when: item.name not in (boundary_targets_list.stdout | default(''))
-  register: target_create
+  register: boundary_target_create
   changed_when: true
 
 - name: Show target IDs
   ansible.builtin.debug:
     msg: "Target {{ item.item.name }} → {{ (item.stdout | from_json).item.id }}"
-  loop: "{{ target_create.results }}"
-  when: item.changed
+  loop: "{{ boundary_target_create.results }}"
+  when: not item.skipped | default(false)

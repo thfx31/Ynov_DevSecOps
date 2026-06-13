@@ -14,5 +14,5 @@ spire_svid_ttl: "5m"
 spire_ca_ttl: "24h"
 
 spire_workloads:
-  - { name: workload-a, spiffe_suffix: app-a }
-  - { name: workload-b, spiffe_suffix: app-b }
+  - {name: workload-a, spiffe_suffix: app-a}
+  - {name: workload-b, spiffe_suffix: app-b}
