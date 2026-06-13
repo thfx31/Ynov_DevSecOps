@@ -1,4 +1,4 @@
-# Observabilité — Prometheus + Grafana
+# Observabilité - Prometheus + Grafana
 
 ## Architecture
 
@@ -27,11 +27,15 @@ make obs-status  # état des conteneurs
 - Prometheus : http://localhost:9090
 - Grafana    : http://localhost:3000 (admin / admin)
 
-## Dashboard — DevSecOps G04 Zero-Trust Platform
+## Dashboard - DevSecOps Zero-Trust Platform
 
-### Capture d'écran
+### Dashboard Grafana
 
-<!-- SCREENSHOT : insérer ici une capture du dashboard complet avec toutes les données -->
+![Dashboard Grafana — Zero-Trust Platform](./img/grafana-dashboard.png)
+
+### Targets Prometheus
+
+![Prometheus — tous les agents UP](./img/prometheus-targets.png)
 
 ---
 
@@ -39,9 +43,9 @@ make obs-status  # état des conteneurs
 
 | Panel | Métrique | Lecture |
 |---|---|---|
-| **Vault — Statut** | `vault_core_active` | `Actif` (vert) = unsealed et leader HA. `Sealed` (rouge) = Vault a redémarré, il faut `make vault-unseal`. |
-| **Vault — Leases actifs** | `vault_expire_num_leases` | Credentials dynamiques vivants (DB, SSH OTP). Monte quand on génère des secrets, descend après révocation ou expiration. |
-| **Vault — Requêtes/s** | `rate(vault_core_handle_request_count[1m])` | Activité globale de Vault. Spike visible lors de toute opération de démo. |
+| **Vault - Statut** | `vault_core_active` | `Actif` (vert) = unsealed et leader HA. `Sealed` (rouge) = Vault a redémarré, il faut `make vault-unseal`. |
+| **Vault - Leases actifs** | `vault_expire_num_leases` | Credentials dynamiques vivants (DB, SSH OTP). Monte quand on génère des secrets, descend après révocation ou expiration. |
+| **Vault - Requêtes/s** | `rate(vault_core_handle_request_count[1m])` | Activité globale de Vault. Spike visible lors de toute opération de démo. |
 
 **Auth Prometheus** : token read-only (`prometheus-metrics` policy, TTL 1 an) stocké dans `observability/prometheus/.vault-token`. Créé automatiquement par `ansible/roles/vault-server/tasks/bootstrap.yml`. Ne jamais committer ce fichier (gitignored).
 
@@ -51,10 +55,10 @@ make obs-status  # état des conteneurs
 
 | Panel | Métrique | Lecture |
 |---|---|---|
-| **SPIRE — Agents attestés** | `spire_server_rpc_agent_v1_agent_attest_agent{status="OK"}` | Nombre d'agents ayant présenté un join token valide. Doit être **2** (workload-a + workload-b). |
-| **SPIRE — Entries enregistrées** | `spire_server_datastore_registration_entry_create{status="OK"}` | Registration entries créées depuis le démarrage du server. |
-| **SPIRE — Renouvellements auto** | `spire_server_rpc_agent_v1_agent_renew_agent{status="OK"}` | Renouvellements d'identité d'agents **sans intervention humaine**. Monte toutes les ~4 min (SVID TTL = 5 min, renouvellement à 80%). C'est le principe *continuous verification* du zero-trust en action. |
-| **SPIRE — SVIDs signés (rate)** | `rate(spire_server_server_ca_sign_x509_svid[5m])` | Taux de certificats X.509 émis par la CA interne SPIRE. Spike visible au démarrage des agents et à chaque cycle de renouvellement. |
+| **SPIRE - Agents attestés** | `spire_server_rpc_agent_v1_agent_attest_agent{status="OK"}` | Nombre d'agents ayant présenté un join token valide. Doit être **2** (workload-a + workload-b). |
+| **SPIRE - Entries enregistrées** | `spire_server_datastore_registration_entry_create{status="OK"}` | Registration entries créées depuis le démarrage du server. |
+| **SPIRE - Renouvellements auto** | `spire_server_rpc_agent_v1_agent_renew_agent{status="OK"}` | Renouvellements d'identité d'agents **sans intervention humaine**. Monte toutes les ~4 min (SVID TTL = 5 min, renouvellement à 80%). C'est le principe *continuous verification* du zero-trust en action. |
+| **SPIRE - SVIDs signés (rate)** | `rate(spire_server_server_ca_sign_x509_svid[5m])` | Taux de certificats X.509 émis par la CA interne SPIRE. Spike visible au démarrage des agents et à chaque cycle de renouvellement. |
 
 **Telemetry SPIRE** : activée dans `server.conf` et `agent.conf` avec `host = "0.0.0.0"` pour écouter sur toutes les interfaces (par défaut SPIRE bind sur loopback uniquement).
 
@@ -64,7 +68,7 @@ make obs-status  # état des conteneurs
 
 | Panel | Usage démo |
 |---|---|
-| **Vault — Évolution des leases** | Lancer `make demo-db` pour générer un lease → la courbe monte. Révoquer avec `vault lease revoke <id>` → descend immédiatement. Illustre la gestion du cycle de vie des secrets. |
+| **Vault - Evolution des leases** | Lancer `make demo-db` pour générer un lease → la courbe monte. Révoquer avec `vault lease revoke <id>` → descend immédiatement. Illustre la gestion du cycle de vie des secrets. |
 
 ## Commandes utiles pendant la démo
 
@@ -95,7 +99,7 @@ observability/
 ├── docker-compose.yml              # Prometheus + Grafana, network_mode: host
 ├── prometheus/
 │   ├── prometheus.yml              # 4 scrape jobs (vault, spire-server, spire-agent x2)
-│   └── .vault-token                # gitignored — token read-only Prometheus
+│   └── .vault-token                # gitignored - token read-only Prometheus
 └── grafana/
     ├── provisioning/
     │   ├── datasources/prometheus.yml

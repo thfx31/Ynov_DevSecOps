@@ -33,7 +33,7 @@
   replace:
     path: /etc/pam.d/sshd
     regexp: '^(@include common-auth)$'
-    replace: '# \1 — disabled: vault-ssh-helper handles auth'
+    replace: '# \1 - disabled: vault-ssh-helper handles auth'
 
 - name: Create vault-ssh log file
   ansible.builtin.file:

@@ -1,11 +1,11 @@
 # Setup de la machine hôte
 
 > Prérequis à effectuer **une seule fois** sur le laptop avant de lancer le projet.
-> OS testé : Fedora 44 (kernel 7.x)
+> OS testé : Fedora 44 (kernel 7.0.11)
 
 ---
 
-## 1. Paquets système
+## 1. Prérequis
 
 ```bash
 sudo dnf install -y \
@@ -22,7 +22,7 @@ sudo usermod -aG libvirt $USER   # puis se reconnecter
 
 ---
 
-## 2. Vault CLI (laptop)
+## 2. Vault CLI
 
 Le binaire `vault` est nécessaire pour interagir avec le Vault server depuis le laptop.
 
@@ -57,7 +57,7 @@ sudo dnf install -y terraform
 
 ---
 
-## 3. Packer
+## 4. Packer
 
 ```bash
 sudo dnf install -y packer
@@ -65,15 +65,52 @@ sudo dnf install -y packer
 
 ---
 
-## 4. Clé SSH dédiée au projet
+## 5. Ansible (virtualenv)
+
+Ansible est exécuté depuis le laptop. On l'isole dans un virtualenv pour éviter les conflits de dépendances et garder une version contrôlée.
+
+```bash
+# Créer le venv
+python3 -m venv ~/.virtualenvs/ansible
+source ~/.virtualenvs/ansible/bin/activate
+
+# Installer Ansible + collections nécessaires
+pip install ansible ansible-lint
+
+# Collections community (ufw, etc.)
+ansible-galaxy collection install community.general
+
+# Vérifier
+ansible --version
+```
+
+Pour activer le venv dans chaque nouveau terminal :
+```bash
+source ~/.virtualenvs/ansible/bin/activate
+```
+
+---
+
+## 6. Clé SSH dédiée au projet
+
+Génère une clé ed25519 dédiée (ne pas réutiliser une clé personnelle) :
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/devsecops -N ""
 ```
 
+La clé publique (`~/.ssh/devsecops.pub`) est utilisée à deux endroits :
+- **Packer** : injectée dans l'image via le provisioner `shell-local` → toutes les VMs l'ont au build
+- **Ansible** : référencée dans `ansible/inventory/hosts.yml` comme `ansible_ssh_private_key_file`
+
+Vérifier que la clé est reconnue par les VMs après `terraform apply` :
+```bash
+ssh -i ~/.ssh/devsecops ubuntu@10.0.0.10 'echo ok'
+```
+
 ---
 
-## 5. Réseau libvirt — NAT et firewalld
+## 7. Réseau libvirt - NAT et firewalld
 
 Le réseau `zero-trust-net` (10.0.0.0/24) est créé par Terraform. Sur Fedora,
 firewalld bloque par défaut le forwarding entre zones. Ajouter les règles
@@ -94,7 +131,7 @@ les VMs peuvent pinguer le gateway (10.0.0.1) mais pas internet.
 
 ---
 
-## 6. Autostart au reboot
+## 8. Autostart au reboot
 
 Après le premier `terraform apply`, activer l'autostart des VMs et du réseau :
 
@@ -111,7 +148,7 @@ libvirt. À faire une fois manuellement.
 
 ---
 
-## 7. Vérification complète
+## 9. Vérification complète
 
 ```bash
 # VMs autostart

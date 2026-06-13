@@ -1,5 +1,5 @@
 ---
-# ── Bundle — distribué aux agents pour valider l'identité du serveur ──────────
+# ── Bundle - distribué aux agents pour valider l'identité du serveur ──────────
 
 - name: Export trust bundle
   ansible.builtin.command: >
@@ -22,7 +22,7 @@
     dest: /tmp/spire-bundle.crt
     flat: true
 
-# ── Registration entries — qui peut obtenir quel SVID ─────────────────────────
+# ── Registration entries - qui peut obtenir quel SVID ─────────────────────────
 
 - name: Check registration entry for workload-a
   ansible.builtin.command: >

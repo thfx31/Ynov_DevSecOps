@@ -18,7 +18,7 @@
   ansible.builtin.set_fact:
     boundary_token: "{{ (boundary_auth.stdout | from_json).item.attributes.token }}"
 
-# ── Targets TCP (port 22) — compatibles avec boundary connect ssh ─────────────
+# ── Targets TCP (port 22) - compatibles avec boundary connect ssh ─────────────
 
 - name: List existing targets
   ansible.builtin.command: >

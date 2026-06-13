@@ -1,4 +1,4 @@
-# Vault — production mode
+# Vault - production mode
 # Ce fichier est déployé via le template ansible/roles/vault-server/templates/vault.hcl.j2
 # Conservé ici pour référence et pour le lint checkov/tfsec
 

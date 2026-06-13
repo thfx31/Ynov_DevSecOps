@@ -6,7 +6,7 @@ users:
     shell: /bin/bash
     lock_passwd: false
 
-# Mot de passe temporaire pour Packer — désactivé par cis-hardening.sh
+# Mot de passe temporaire pour Packer - désactivé par cis-hardening.sh
 chpasswd:
   list: "ubuntu:ubuntu"
   expire: false

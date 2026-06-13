@@ -1,5 +1,5 @@
 {
-  "title": "DevSecOps — Zero-Trust Platform",
+  "title": "DevSecOps - Zero-Trust Platform",
   "uid": "devsecops-zero-trust",
   "schemaVersion": 38,
   "version": 2,
@@ -41,7 +41,7 @@
     {
       "id": 1,
       "title": "Vault - Leases actifs",
-      "description": "Credentials dynamiques actifs (DB, SSH OTP). Descend après révocation — visible pendant la démo.",
+      "description": "Credentials dynamiques actifs (DB, SSH OTP). Descend après révocation - visible pendant la démo.",
       "type": "stat",
       "gridPos": { "x": 3, "y": 1, "w": 5, "h": 4 },
       "targets": [
@@ -179,7 +179,7 @@
 
     {
       "id": 7,
-      "title": "Vault - Évolution des leases (démo révocation)",
+      "title": "Vault - Evolution des leases (démo révocation)",
       "description": "Pendant la démo : vault read database/creds/app-role → lease monte. vault lease revoke → lease descend immédiatement.",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 11, "w": 24, "h": 7 },

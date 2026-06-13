@@ -44,7 +44,7 @@ variable "network_name" {
 }
 
 variable "base_image_path" {
-  description = "Path du volume de base (libvirt_volume.path — image Packer)"
+  description = "Path du volume de base (libvirt_volume.path - image Packer)"
   type        = string
 }
 

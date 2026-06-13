@@ -18,7 +18,7 @@ users:
 ssh_pwauth: false
 disable_root: true
 
-# Écrire le netplan directement — plus fiable que le module réseau cloud-init
+# Ecrire le netplan directement - plus fiable que le module réseau cloud-init
 write_files:
   - path: /etc/netplan/99-static.yaml
     permissions: '0600'

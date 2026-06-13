@@ -2,9 +2,9 @@
 # Boundary dev mode (tourne sur le laptop, pas sur les VMs)
 # Installe le binaire via dnf, démarre le service systemd boundary-dev,
 # puis crée les targets SSH workload-a (10.0.0.20) et workload-b (10.0.0.21).
-# Les targets sont en mémoire (SQLite) — perdues au restart, ce playbook les recrée.
+# Les targets sont en mémoire (SQLite) - perdues au restart, ce playbook les recrée.
 
-- name: Boundary — dev mode local
+- name: Boundary - dev mode local
   hosts: localhost
   connection: local
   become: true

@@ -10,7 +10,7 @@
     - "{{ spire_conf_dir }}/agent"
     - /tmp/spire-agent/public
 
-# ── Bundle — copié depuis le contrôleur Ansible (fetché depuis le server) ─────
+# ── Bundle - copié depuis le contrôleur Ansible (fetché depuis le server) ─────
 
 - name: Deploy trust bundle
   ansible.builtin.copy:
@@ -19,7 +19,7 @@
     dest: "{{ spire_conf_dir }}/agent/bootstrap.crt"
     mode: "0644"
 
-# ── Join token — généré sur le server via delegate_to ────────────────────────
+# ── Join token - généré sur le server via delegate_to ────────────────────────
 
 - name: Generate join token for this agent
   ansible.builtin.command: >

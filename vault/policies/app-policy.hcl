@@ -1,16 +1,16 @@
-# Politique Vault — workloads applicatifs (workload-a, workload-b)
+# Politique Vault - workloads applicatifs (workload-a, workload-b)
 
-# SSH OTP — générer un mot de passe à usage unique
+# SSH OTP - générer un mot de passe à usage unique
 path "ssh/creds/otp-role" {
   capabilities = ["update"]
 }
 
-# Database secrets — lire des credentials PostgreSQL éphémères
+# Database secrets - lire des credentials PostgreSQL éphémères
 path "database/creds/app-role" {
   capabilities = ["read"]
 }
 
-# Transit — chiffrement/déchiffrement de données sensibles
+# Transit - chiffrement/déchiffrement de données sensibles
 path "transit/encrypt/app-key" {
   capabilities = ["update"]
 }

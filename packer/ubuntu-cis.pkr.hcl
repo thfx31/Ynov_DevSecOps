@@ -38,7 +38,7 @@ source "qemu" "ubuntu_cis" {
   output_directory = "${path.root}/output"
   vm_name          = "ubuntu-cis-hardened.qcow2"
 
-  # Cloud-init seed ISO — sets ubuntu user + password for Packer SSH
+  # Cloud-init seed ISO - sets ubuntu user + password for Packer SSH
   cd_files = [
     "${path.root}/cloud-init/meta-data",
     "${path.root}/cloud-init/user-data",

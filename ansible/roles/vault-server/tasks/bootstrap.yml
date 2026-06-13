@@ -240,7 +240,7 @@
   ansible.builtin.copy:
 
     content: |
-      # Vault AppRole credentials — injectés par Ansible sur les workloads
+      # Vault AppRole credentials - injectés par Ansible sur les workloads
       # NE PAS committer ce fichier
       workload_a_role_id: {{ workload_a_role_id.stdout }}
       workload_a_secret_id: {{ workload_a_secret_id.stdout }}

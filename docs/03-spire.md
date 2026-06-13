@@ -1,14 +1,14 @@
-# SPIRE — Identité workload X.509
+# SPIRE - Identité workload X.509
 
 ---
 
 ## Concepts fondamentaux
 
-### SPIFFE — le standard
+### SPIFFE - le standard
 
 **SPIFFE** (Secure Production Identity Framework For Everyone) est un standard
 ouvert qui définit comment les workloads s'identifient entre eux dans une
-infrastructure moderne. Il spécifie :
+infrastructure zero-trust. Il spécifie :
 - Le format des identités : les **SPIFFE IDs** (`spiffe://trust-domain/path`)
 - Le format des documents d'identité : les **SVIDs**
 - Le protocole de distribution : la **Workload API**
@@ -17,7 +17,7 @@ SPIFFE est le standard. SPIRE est l'implémentation de référence.
 
 ---
 
-### SVID — ce que c'est, ce que ça signifie
+### SVID - ce que c'est, ce que ça signifie
 
 **SVID** = **SPIFFE Verifiable Identity Document**
 
@@ -37,14 +37,12 @@ Un SVID X.509 contient :
 - Une **date d'expiration** (TTL = 5 minutes dans notre lab)
 - Une **signature** de la CA du SPIRE Server
 
-Le SPIRE Agent **renouvelle automatiquement** le SVID avant expiration — sans
+Le SPIRE Agent **renouvelle automatiquement** le SVID avant expiration - sans
 intervention humaine, sans redémarrage du workload.
 
-**Pourquoi c'est zero-trust :**
-Un workload ne déclare pas son identité — il la prouve avec un certificat
-cryptographique. Aucun secret partagé, aucun token statique. L'identité est
-liée à CE QUE le workload est (binaire, UID, namespace), pas à comment on l'a
-configuré.
+**Solution zero-trust :**
+Un workload ne déclare pas son identité, il la prouve avec un certificat cryptographique.
+Aucun secret partagé, aucun token statique. L'identité est liée à CE QUE le workload est (binaire, UID, namespace), pas à comment on l'a configuré.
 
 ---
 
@@ -60,8 +58,8 @@ spire-server (10.0.0.11)                workload-a (10.0.0.20)
 │  Registration entries   │             │  Expose Workload API       │
 │                         │             │  (socket Unix)             │
 │  spiffe://example.org/  │             │                            │
-│    node/workload-a  ────┼─────────────►  /tmp/spire-agent/        │
-│    workload/app-a       │             │    public/api.sock          │
+│    node/workload-a  ────┼─────────────►  /tmp/spire-agent/         │
+│    workload/app-a       │             │    public/api.sock         │
 └─────────────────────────┘             │         │                  │
                                         │         ▼                  │
                                         │  Process ubuntu (UID 1000) │
@@ -72,9 +70,9 @@ spire-server (10.0.0.11)                workload-a (10.0.0.20)
 
 ---
 
-### Attestation — comment ça fonctionne
+### Attestation - comment ça fonctionne
 
-**Étape 1 — Node attestation (agent → server)**
+**Etape 1 - Node attestation (agent → server)**
 
 L'agent prouve qu'il tourne sur un nœud autorisé. Dans notre lab : join_token.
 - Le server génère un token unique par agent
@@ -84,9 +82,9 @@ L'agent prouve qu'il tourne sur un nœud autorisé. Dans notre lab : join_token.
 - Le token est consommé (usage unique)
 
 En production : on utiliserait AWS IID, GCP GCE, TPM attestation, ou x509pop
-au lieu du join_token — le principe est le même.
+au lieu du join_token - le principe est le même.
 
-**Étape 2 — Workload attestation (workload → agent)**
+**Etape 2 - Workload attestation (workload → agent)**
 
 Un process local appelle la Workload API (socket Unix). L'agent l'identifie
 via le WorkloadAttestor `unix` : UID, GID, chemin du binaire.
@@ -98,7 +96,7 @@ Le server a une **registration entry** qui dit :
 L'agent vérifie que le process correspond, récupère le SVID auprès du server,
 et le délivre au workload.
 
-**Étape 3 — Renouvellement automatique**
+**Etape 3 - Renouvellement automatique**
 
 Avant expiration du SVID (TTL = 5min), l'agent en demande un nouveau au server.
 Le workload reçoit le nouveau SVID via la Workload API sans interruption.
@@ -130,18 +128,18 @@ ansible-playbook playbooks/spire.yml -v
 
 **Ce que fait le playbook :**
 
-Play 1 — SPIRE Server (spire-server) :
-1. Télécharge et installe SPIRE v1.9.4
+Play 1 - SPIRE Server (spire-server) :
+1. Télécharge et installe SPIRE
 2. Déploie `server.conf` (SQLite, join_token, KeyManager disk)
 3. Démarre le service systemd
-4. Exporte le trust bundle → `/tmp/spire-bundle.crt` sur le contrôleur Ansible
+4. Exporte le trust bundle `/tmp/spire-bundle.crt` sur le contrôleur Ansible
 5. Crée les registration entries pour workload-a et workload-b
 
-Play 2 — SPIRE Agents (workload-a, workload-b) :
+Play 2 - SPIRE Agents (workload-a, workload-b) :
 1. Installe le binaire spire-agent
 2. Copie le trust bundle depuis le contrôleur
-3. Génère un join token (via `delegate_to: spire-server`)
-4. Démarre l'agent → attestation automatique
+3. Génère un join token
+4. Démarre l'agent : attestation automatique
 5. Attend que la socket Workload API soit disponible
 
 ---
@@ -156,10 +154,10 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 'sudo systemctl status spire-server --n
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl status spire-agent --no-pager'
 ```
 
-### Test 1 — Fetch d'un X.509-SVID
+### Test 1 - Fetch d'un X.509-SVID
 
 **Ce qu'on démontre :** un process peut récupérer son certificat d'identité
-cryptographique en interrogeant la socket locale. Aucun secret à gérer — le
+cryptographique en interrogeant la socket locale. Aucun secret à gérer,  le
 SPIRE Agent sait qui est ce process grâce à l'attestation unix.
 
 ```bash
@@ -179,11 +177,11 @@ CA #1 Valid After:      2026-06-13 09:00:00 +0000 UTC
 CA #1 Valid Until:      2026-06-14 09:00:00 +0000 UTC
 ```
 
-**Phrase jury :** "Ce process a une identité cryptographique. Pas un token
-partagé — un certificat lié à ce qu'il est. Il expire dans 5 minutes et sera
-renouvelé automatiquement."
+Ce process a une identité cryptographique. Pas un token
+partagé mais un certificat lié à ce qu'il est. Il expire dans 5 minutes et sera
+renouvelé automatiquement.
 
-### Test 2 — Renouvellement automatique
+### Test 2 - Renouvellement automatique
 
 ```bash
 # Lancer en boucle : on voit le SVID se renouveler automatiquement
@@ -192,7 +190,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
    -socketPath /tmp/spire-agent/public/api.sock 2>&1 | grep -E \"SPIFFE|Until\""'
 ```
 
-### Test 3 — Vérification des entries côté server
+### Test 3 - Vérification des entries côté server
 
 ```bash
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
@@ -200,7 +198,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
    -socketPath /tmp/spire-server/private/api.sock'
 ```
 
-### Test 4 — Agents attestés
+### Test 4 - Agents attestés
 
 ```bash
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
@@ -256,7 +254,7 @@ sudo /opt/spire/bin/spire-server entry delete \
 # Afficher le trust bundle (CA X.509 du trust domain)
 sudo /opt/spire/bin/spire-server bundle show \
   -socketPath /tmp/spire-server/private/api.sock
-# → Certificat PEM — distribué aux agents pour valider les SVIDs
+# → Certificat PEM - distribué aux agents pour valider les SVIDs
 
 # Générer un join token pour un nouvel agent
 sudo /opt/spire/bin/spire-server token generate \
@@ -290,13 +288,7 @@ sudo /opt/spire/bin/spire-server token generate \
 # Observer le renouvellement automatique (toutes les ~4min)
 watch -n 30 '/opt/spire/bin/spire-agent api fetch x509 \
   -socketPath /tmp/spire-agent/public/api.sock 2>&1 | grep -E "SPIFFE|Until"'
-# → Montrer au jury que le SVID se renouvelle sans intervention
 
-# Récupérer un JWT-SVID (pour auth HTTP inter-services)
-/opt/spire/bin/spire-agent api fetch jwt \
-  -socketPath /tmp/spire-agent/public/api.sock \
-  -audience workload-b
-# → JWT signé — peut être validé par workload-b avec le bundle SPIRE
 ```
 
 ### Diagnostics
@@ -312,18 +304,18 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
 
 # Vérifier quel UID tourne le process qui appelle la Workload API
 id ubuntu
-# → uid=1000 — doit correspondre au selector unix:uid:1000 de la registration entry
+# → uid=1000 - doit correspondre au selector unix:uid:1000 de la registration entry
 ```
 
 ---
 
-## Pièges et solutions
+## Troubleshooting
 
 | Piège | Cause | Solution |
 |---|---|---|
-| Agent ne démarre pas | Join token expiré (TTL 1h) | Rejouer `ansible-playbook spire.yml` — régénère un token |
+| Agent ne démarre pas | Join token expiré (TTL 1h) | Rejouer `ansible-playbook spire.yml` - régénère un token |
 | Socket non créée | Service pas encore prêt | `wait_for` dans Ansible attend jusqu'à 30s |
 | `entry show` retourne vide | Entry pas encore créée | La tâche de création est idempotente |
 | SVID non distribué | UID du process ne correspond pas au selector | Vérifier que l'user est bien UID 1000 : `id ubuntu` |
 | KeyManager disk vs memory | Memory → CA perdue au restart → SVIDs invalides | On utilise disk pour le server, memory pour les agents |
-| join_token consommé au restart | Token usage unique | Après premier démarrage, l'agent utilise son SVID stocké en data_dir — le token est ignoré |
+| join_token consommé au restart | Token usage unique | Après premier démarrage, l'agent utilise son SVID stocké en data_dir - le token est ignoré |

@@ -1,16 +1,16 @@
-# Vault — Référence fonctionnelle
+# Vault - Référence fonctionnelle
 
 HashiCorp Vault est une plateforme de gestion des secrets et des accès. Il fait
 quatre choses fondamentalement différentes.
 
 ---
 
-## 1. Secrets statiques — KV Store
+## 1. Secrets statiques - KV Store
 
 Coffre-fort chiffré pour les secrets qui ne peuvent pas être dynamiques.
 
 ```bash
-# Écrire
+# Ecrire
 vault kv put secret/app/config \
   api_key="xyz123" \
   stripe_key="sk_live_..."
@@ -18,7 +18,7 @@ vault kv put secret/app/config \
 # Lire
 vault kv get secret/app/config
 
-# Versionning — rollback possible
+# Versionning - rollback possible
 vault kv get -version=2 secret/app/config
 vault kv rollback -version=1 secret/app/config
 ```
@@ -34,7 +34,7 @@ secrets de configuration qui ne changent pas souvent.
 
 ---
 
-## 2. Secrets dynamiques — génération à la demande
+## 2. Secrets dynamiques - génération à la demande
 
 Vault se connecte à un système tiers avec un compte admin et crée des
 credentials éphémères à chaque demande. Ils expirent automatiquement.
@@ -73,7 +73,7 @@ vault lease revoke database/creds/app-role/<lease_id>
 **Autres backends supportés :** MySQL, MariaDB, MongoDB, Redis, Cassandra,
 Elasticsearch, Oracle, MSSQL, InfluxDB.
 
-### SSH secrets engine (OTP mode) — ce qu'on utilise
+### SSH secrets engine (OTP mode) - ce qu'on utilise
 
 ```bash
 # Activer
@@ -91,9 +91,9 @@ vault write ssh/creds/otp-role ip=10.0.0.20
 ```
 
 Le workload cible doit avoir `vault-ssh-helper` installé comme module PAM.
-Chaque OTP est valide pour une seule connexion SSH — consommé = détruit.
+Chaque OTP est valide pour une seule connexion SSH - consommé = détruit.
 
-### SSH secrets engine (Signed Certificates mode) — alternatif
+### SSH secrets engine (Signed Certificates mode) - alternatif
 
 Vault agit comme une CA SSH. Il signe les clés publiques des utilisateurs
 avec une durée limitée. Plus besoin de distribuer des `authorized_keys`.
@@ -118,7 +118,7 @@ vault read aws/creds/dev-role
 
 ---
 
-## 3. Chiffrement as a Service — Transit Engine
+## 3. Chiffrement as a Service - Transit Engine
 
 Vault chiffre et déchiffre des données **sans les stocker**. L'application
 délègue toute gestion de clés à Vault.
@@ -151,14 +151,14 @@ vault write -f transit/keys/app-key/rotate
 les données sont illisibles sans accès à Vault.
 
 **Autres opérations disponibles :**
-- `transit/hmac/<key>` — générer/vérifier des HMAC
-- `transit/sign/<key>` — signer des données
-- `transit/verify/<key>` — vérifier une signature
-- `transit/rewrap/<key>` — re-chiffrer avec la nouvelle version de clé sans déchiffrer
+- `transit/hmac/<key>` - générer/vérifier des HMAC
+- `transit/sign/<key>` - signer des données
+- `transit/verify/<key>` - vérifier une signature
+- `transit/rewrap/<key>` - re-chiffrer avec la nouvelle version de clé sans déchiffrer
 
 ---
 
-## 4. Auth Methods — comment on s'authentifie à Vault
+## 4. Auth Methods - comment on s'authentifie à Vault
 
 Avant d'obtenir quoi que ce soit, il faut prouver son identité à Vault.
 Vault supporte de nombreuses méthodes selon le contexte.
@@ -176,7 +176,7 @@ Vault supporte de nombreuses méthodes selon le contexte.
 | **SPIRE JWT-SVID** | Workloads SPIFFE | JWT-SVID émis par SPIRE |
 | **TLS Cert** | Services avec certificat client | Certificat X.509 |
 
-### AppRole — ce qu'on utilise pour les workloads
+### AppRole - ce qu'on utilise pour les workloads
 
 ```bash
 # Activer
@@ -205,7 +205,7 @@ vault write auth/approle/login \
 
 ---
 
-## 5. Policies — contrôle d'accès
+## 5. Policies - contrôle d'accès
 
 Les policies définissent ce qu'un token authentifié peut faire.
 Syntaxe HCL, granularité par chemin.
@@ -258,7 +258,7 @@ vault lease revoke -prefix database/creds/app-role/
 ```
 
 La révocation en cascade (`-prefix`) est le "kill switch" : en une commande,
-tous les credentials actifs sont invalidés — dans Vault ET dans PostgreSQL.
+tous les credentials actifs sont invalidés - dans Vault ET dans PostgreSQL.
 
 ---
 
@@ -271,7 +271,7 @@ vault audit enable file file_path=/var/log/vault/audit.log
 ```
 
 Chaque entrée contient : timestamp, type, auth (qui), request (quoi), response.
-Les secrets ne sont jamais loggués en clair — ils sont hashés (HMAC-SHA256).
+Les secrets ne sont jamais loggués en clair - ils sont hashés (HMAC-SHA256).
 
 Dans notre lab : l'audit log est exposé à Prometheus via vault-exporter
 pour le dashboard Grafana (Bloc 6).

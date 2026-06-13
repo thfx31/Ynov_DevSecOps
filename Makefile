@@ -29,7 +29,7 @@ export VAULT_TOKEN
 demo-otp: ## Génère un OTP SSH pour workload-a
 	@echo ""
 	@echo "=== Vault SSH OTP ==="
-	@echo "Connexion sans clé SSH — mot de passe à usage unique"
+	@echo "Connexion sans clé SSH - mot de passe à usage unique"
 	@echo ""
 	vault write ssh/creds/otp-role ip=10.0.0.20
 	@echo ""
@@ -48,7 +48,7 @@ demo-db: ## Génère des credentials PostgreSQL dynamiques
 
 demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	@echo ""
-	@echo "=== Vault Transit — Chiffrement as a Service ==="
+	@echo "=== Vault Transit - Chiffrement as a Service ==="
 	@echo ""
 	$(eval CIPHER := $(shell vault write -field=ciphertext transit/encrypt/app-key \
 	  plaintext=$$(echo -n "IBAN-FR7612345678" | base64)))
@@ -61,7 +61,7 @@ demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	@echo ""
 	@echo "→ La clé ne quitte jamais Vault. Le dump DB est illisible sans accès Vault."
 
-demo-status: ## État général de la plateforme Vault
+demo-status: ## Etat général de la plateforme Vault
 	@echo ""
 	@echo "=== Vault Status ==="
 	vault status
@@ -103,7 +103,7 @@ infra-down: ## Arrêter les VMs proprement
 	  sudo virsh shutdown $$vm 2>/dev/null || true; \
 	done
 
-infra-status: ## État des VMs et connectivité
+infra-status: ## Etat des VMs et connectivité
 	@echo "=== VMs ==="
 	@sudo virsh list --all
 	@echo ""
@@ -124,7 +124,7 @@ obs-up: ## Démarrer Prometheus + Grafana (Docker Compose)
 obs-down: ## Arrêter Prometheus + Grafana
 	docker compose -f observability/docker-compose.yml down
 
-obs-status: ## État des conteneurs d'observabilité
+obs-status: ## Etat des conteneurs d'observabilité
 	docker compose -f observability/docker-compose.yml ps
 
 # ── Boundary ─────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ obs-status: ## État des conteneurs d'observabilité
 
 demo-boundary: ## Connexion SSH via Boundary à workload-a (sans IP directe)
 	@echo ""
-	@echo "=== Boundary — Accès zero-trust ==="
+	@echo "=== Boundary - Accès zero-trust ==="
 	@echo "Targets disponibles :"
 	@boundary targets list -scope-id=$(BOUNDARY_PROJECT) -format=json \
 	  | jq -r '.items[] | "  \(.name) (port \(.default_port // "22")) → \(.id)"'
@@ -148,7 +148,7 @@ boundary-targets: ## Lister les targets Boundary et leurs IDs
 	@boundary targets list -scope-id=$(BOUNDARY_PROJECT) -format=json \
 	  | jq -r '.items[] | "  \(.name)\t\(.id)\t\(.address)"'
 
-boundary-status: ## État du service Boundary et connectivité API
+boundary-status: ## Etat du service Boundary et connectivité API
 	@echo "=== Service ==="
 	@systemctl is-active boundary-dev && echo "boundary-dev: actif" || echo "boundary-dev: inactif"
 	@echo ""

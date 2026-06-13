@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# CIS Ubuntu 24.04 LTS Benchmark — Level 1 hardening
+# CIS Ubuntu 24.04 LTS Benchmark - Level 1 hardening
 # Conçu pour tourner une seule fois pendant le build Packer.
 # Packer maintient sa connexion SSH existante même si sshd est reconfiguré.
 set -euo pipefail
 
-echo "=== [CIS L1] Ubuntu 24.04 hardening — début ==="
+echo "=== [CIS L1] Ubuntu 24.04 hardening - début ==="
 
-# ─── 1. MODULES KERNEL INUTILISÉS ─────────────────────────────────────────────
+# ─── 1. MODULES KERNEL INUTILISES ─────────────────────────────────────────────
 echo "[1/9] Blacklist modules noyau..."
 cat > /etc/modprobe.d/cis-blacklist.conf << 'EOF'
 install cramfs /bin/true
@@ -47,10 +47,10 @@ apt-get purge -yq \
   2>/dev/null || true
 apt-get autoremove -yq
 
-# ─── 3. SYSCTL RÉSEAU ─────────────────────────────────────────────────────────
+# ─── 3. SYSCTL RESEAU ─────────────────────────────────────────────────────────
 echo "[3/9] Sysctl hardening..."
 cat > /etc/sysctl.d/60-cis.conf << 'EOF'
-# IP forwarding désactivé (workloads — pas de routage)
+# IP forwarding désactivé (workloads - pas de routage)
 net.ipv4.ip_forward = 0
 net.ipv6.conf.all.forwarding = 0
 
@@ -85,7 +85,7 @@ net.ipv4.conf.default.rp_filter = 1
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
 
-# IPv6 — désactiver RA
+# IPv6 - désactiver RA
 net.ipv6.conf.all.accept_ra = 0
 net.ipv6.conf.default.accept_ra = 0
 
@@ -102,7 +102,7 @@ sysctl --system
 # ─── 4. SSH ───────────────────────────────────────────────────────────────────
 echo "[4/9] SSH hardening..."
 cat > /etc/ssh/sshd_config << 'EOF'
-# CIS Ubuntu 24.04 L1 — SSH hardening
+# CIS Ubuntu 24.04 L1 - SSH hardening
 Port 22
 Protocol 2
 
@@ -152,7 +152,7 @@ AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-# Valider la config — NE PAS restart ici (Packer est connecté via password)
+# Valider la config - NE PAS restart ici (Packer est connecté via password)
 # Le démarrage depuis l'image appliquera la config (clé SSH requise)
 sshd -t
 
@@ -194,7 +194,7 @@ cat > /etc/audit/rules.d/99-cis.rules << 'EOF'
 -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access
 -a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access
 
-# Élévation de privilèges
+# Elévation de privilèges
 -w /bin/su -p x -k priv_esc
 -w /usr/bin/sudo -p x -k priv_esc
 -w /etc/sudoers -p wa -k priv_esc
@@ -203,7 +203,7 @@ cat > /etc/audit/rules.d/99-cis.rules << 'EOF'
 # Montages
 -a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=4294967295 -k mounts
 
-# Immutable — doit être en dernière règle
+# Immutable - doit être en dernière règle
 -e 2
 EOF
 
@@ -239,7 +239,7 @@ fail_interval = 900
 unlock_time = 900
 EOF
 
-# ─── 8. SERVICES INUTILISÉS ───────────────────────────────────────────────────
+# ─── 8. SERVICES INUTILISES ───────────────────────────────────────────────────
 echo "[8/9] Désactivation services non nécessaires..."
 SERVICES="avahi-daemon cups isc-dhcp-server isc-dhcp-server6 slapd nfs-server rpcbind bind9 vsftpd apache2 dovecot smbd squid snmpd"
 for svc in $SERVICES; do
@@ -261,7 +261,7 @@ systemctl enable ufw
 
 cat > /etc/issue.net << 'EOF'
 *******************************************************************************
-AUTHORIZED USERS ONLY — All activity is monitored and logged.
+AUTHORIZED USERS ONLY - All activity is monitored and logged.
 Unauthorized access is strictly prohibited and will be prosecuted.
 *******************************************************************************
 EOF

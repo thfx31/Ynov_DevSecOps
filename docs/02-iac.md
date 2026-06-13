@@ -1,4 +1,4 @@
-# IaC — Packer + Terraform + Ansible
+# IaC - Packer + Terraform + Ansible
 
 ## Résultat
 
@@ -13,7 +13,7 @@
 
 ---
 
-## Packer — Image de base durcie
+## Packer - Image de base durcie
 
 **Fichier :** `packer/ubuntu-cis.pkr.hcl`
 
@@ -41,69 +41,114 @@ packer build ubuntu-cis.pkr.hcl
 
 ---
 
-## Terraform — Provisioning VMs
+## Terraform - Provisioning VMs
 
 **Provider :** `dmacvicar/libvirt` **v0.7.6**
-
-> ⚠️ La v0.9.x a été abandonnée : rewrite instable, `libvirt_cloudinit_disk` crée l'ISO dans `/tmp` sans le téléverser correctement dans le pool (bug `file://` manquant). La v0.7.x gère l'ISO directement dans le pool en une ressource.
 
 **Structure :**
 ```
 terraform/
-├── main.tf               — pool, réseau, 4 modules VM
-├── modules/
-│   ├── network/          — libvirt_network NAT
-│   └── vm/               — libvirt_volume + libvirt_cloudinit_disk + libvirt_domain
-│       └── templates/
-│           ├── cloud_init.tpl      — user-data cloud-init
-│           └── meta_data.tpl       — instance-id
+├── main.tf               - pool, réseau, 4 modules VM
+├── variables.tf          - variables (libvirt_uri, base_image_path, ssh_public_key…)
+├── outputs.tf            - IPs des VMs
+├── terraform.tfvars      - valeurs locales (gitignored)
+├── .tflint.hcl           - config lint CI
+└── modules/
+    ├── network/
+    │   ├── main.tf       - libvirt_network NAT (10.0.0.0/24)
+    │   ├── variables.tf
+    │   └── outputs.tf
+    └── vm/
+        ├── main.tf       - libvirt_volume + libvirt_cloudinit_disk + libvirt_domain
+        ├── variables.tf
+        ├── outputs.tf
+        └── templates/
+            ├── cloud_init.tpl      - user-data (clé SSH, packages)
+            ├── network_config.tpl  - netplan IP statique
+            └── meta_data.tpl       - instance-id cloud-init
 ```
 
-**Décisions :**
-
-- MACs fixes (`52:54:00:00:00:xx`) pour traçabilité et futures réservations DHCP
-- `wait_for_lease = false` : les IPs sont configurées par cloud-init, pas DHCP
-- `libvirt_pool` type `dir` → `/var/lib/libvirt/images/devsecops/`
+**Premier lancement (une fois) :** créer `terraform/terraform.tfvars` :
+```bash
+echo "ssh_public_key = \"$(cat ~/.ssh/devsecops.pub)\"" > terraform/terraform.tfvars
+```
 
 **Apply :**
 ```bash
 cd terraform
 terraform init
-terraform apply -var="ssh_public_key=$(cat ~/.ssh/devsecops.pub)"
-# ~3 min (copie 4 × qcow2 ~1.5 Go)
+terraform apply
 ```
+
+Les IPs fixes sont assignées via cloud-init : `main.tf` passe l'IP de chaque VM au template `network_config.tpl` qui génère un `netplan` statique au premier boot. Rien à faire manuellement.
 
 ---
 
-## Cloud-init — Configuration réseau
+## Ansible - Configuration des services
 
-**Problème rencontré :** le module réseau de cloud-init (`network_config` dans `libvirt_cloudinit_disk`) n'applique pas la config netplan dans Ubuntu 24.04 — cloud-init cherche d'abord un metadata server EC2 (timeout 120s), puis ignore la config réseau.
+Ansible configure les services sur les VMs après `terraform apply`. Le hardening CIS est déjà baked dans l'image Packer — Ansible ne s'occupe que des services applicatifs.
 
-**Solution :** `write_files` + `runcmd` dans le `user_data` — écriture directe du netplan et application immédiate.
+**Prérequis :** venv activé (`source ~/.virtualenvs/ansible/bin/activate`)
 
-```yaml
-# cloud_init.tpl
-datasource_list: [NoCloud, None]   # évite le timeout EC2
+### Structure
 
-write_files:
-  - path: /etc/netplan/99-static.yaml
-    content: |
-      network:
-        version: 2
-        ethernets:
-          id0:
-            match: {name: "en*"}
-            dhcp4: false
-            addresses: [${ip_address}/24]
-            routes: [{to: default, via: ${gateway}}]
-
-runcmd:
-  - rm -f /etc/netplan/50-cloud-init.yaml
-  - netplan apply
-  - touch /etc/cloud/cloud-init.disabled
+```
+ansible/
+├── inventory/
+│   └── hosts.yml          # 4 hôtes en 3 groupes (vault_servers, spire_servers, workloads)
+├── playbooks/
+│   ├── site.yml            # déploiement complet from scratch
+│   ├── vault.yml           # Vault seul (install + configure + bootstrap)
+│   ├── spire.yml           # SPIRE server + agents
+│   └── boundary.yml        # Boundary dev mode sur le laptop
+└── roles/
+    ├── vault-server/       # install, configure (vault.hcl), bootstrap (init/unseal/secrets engines)
+    ├── vault-agent/        # vault-ssh-helper, PAM, PostgreSQL
+    ├── spire-server/       # install, configure (server.conf), bootstrap (registration entries)
+    ├── spire-agent/        # install, configure (agent.conf, join token)
+    └── boundary/           # install, service systemd, targets TCP
 ```
 
-L'IP est passée depuis `main.tf` → `modules/vm` → `templatefile` → `cloud_init.tpl`.
+### Inventory
+
+```yaml
+# ansible/inventory/hosts.yml
+all:
+  vars:
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: ~/.ssh/devsecops
+  children:
+    vault_servers:
+      hosts:
+        vault-server: { ansible_host: 10.0.0.10 }
+    spire_servers:
+      hosts:
+        spire-server: { ansible_host: 10.0.0.11 }
+    workloads:
+      hosts:
+        workload-a: { ansible_host: 10.0.0.20 }
+        workload-b: { ansible_host: 10.0.0.21 }
+```
+
+### Déploiement
+
+```bash
+cd ansible
+
+# Vérifier la connectivité avant de déployer
+ansible all -m ping
+
+# Déploiement complet (ordre : Vault → SPIRE → Boundary)
+ansible-playbook playbooks/site.yml -v
+
+# Rejouer un seul service
+ansible-playbook playbooks/vault.yml -v
+ansible-playbook playbooks/spire.yml -v
+ansible-playbook playbooks/boundary.yml -v
+
+```
+
+**Ordre important :** Vault doit tourner avant SPIRE (les agents récupèrent des tokens via Vault). Boundary est indépendant.
 
 ---
 

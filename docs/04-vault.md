@@ -1,4 +1,4 @@
-# Vault — SSH OTP · DB dynamic secrets · Transit · AppRole
+# Vault - SSH OTP - DB dynamic secrets - Transit - AppRole
 
 ## Résultat attendu
 
@@ -53,7 +53,7 @@ Le playbook fait, dans l'ordre :
    - Crée les rôles AppRole pour workload-a et workload-b
 
 2. **workload-a/b** :
-   - Télécharge et installe vault-ssh-helper v0.2.1
+   - Télécharge et installe vault-ssh-helper
    - Configure PAM `/etc/pam.d/sshd` pour déléguer l'auth à Vault
    - Active `KbdInteractiveAuthentication yes` dans sshd
    - (workload-a uniquement) Installe PostgreSQL, crée appdb + vault_admin
@@ -76,7 +76,7 @@ Le playbook fait, dans l'ordre :
 ### Prérequis
 
 ```bash
-# Sur le laptop — à faire dans chaque nouveau terminal
+# Sur le laptop - à faire dans chaque nouveau terminal
 export VAULT_ADDR=http://10.0.0.10:8200
 export VAULT_TOKEN=$(ssh -i ~/.ssh/devsecops ubuntu@10.0.0.10 \
   'sudo cat /root/vault-init.json' | jq -r .root_token)
@@ -86,9 +86,9 @@ vault status | grep -E "Initialized|Sealed"
 # → Initialized: true  /  Sealed: false
 ```
 
-### Test 1 — SSH OTP
+### Test 1 - SSH OTP
 
-**Ce qu'on démontre :** un ingénieur peut accéder à un serveur de production
+**Ce qu'on démontre :** un admin peut accéder à un serveur de production
 sans jamais avoir de clé SSH. Vault génère un mot de passe à usage unique,
 valable pour une seule connexion. Même si ce mot de passe est intercepté,
 il est déjà détruit après la première utilisation.
@@ -107,31 +107,28 @@ ssh -o PubkeyAuthentication=no \
     -o PreferredAuthentications=keyboard-interactive \
     ubuntu@10.0.0.20
 # Password: [coller l'OTP]
-# → Connexion OK ✓
+# → Connexion OK
 
 # 3. Retenter avec le MÊME OTP → refusé
 ssh -o PubkeyAuthentication=no \
     -o PreferredAuthentications=keyboard-interactive \
     ubuntu@10.0.0.20
-# → Permission denied ✓  ← credential consommé et détruit
+# → Permission denied car credential consommé et détruit
 ```
-
-**Phrase jury :** "Ce credential n'existe plus — ni dans Vault, ni sur la VM.
-Il a été consommé à la première utilisation."
 
 ---
 
-### Test 2 — DB dynamic secrets
+### Test 2 - DB dynamic secrets
 
 **Ce qu'on démontre :** une application n'a jamais de mot de passe PostgreSQL
 stocké dans un fichier de config, une variable d'environnement ou un secret
 Kubernetes. Vault crée un utilisateur dédié à la demande, avec une durée de vie
-limitée. À expiration ou sur révocation, Vault supprime l'utilisateur directement
-dans PostgreSQL — sans intervention humaine.
+limitée. A expiration ou sur révocation, Vault supprime l'utilisateur directement
+dans PostgreSQL - sans intervention humaine.
 
 **Pourquoi c'est important :** dans un incident de sécurité (dump de config,
 fuite de logs), les credentials récupérés sont soit expirés, soit révocables
-en une commande. Le rayon d'explosion est borné dans le temps.
+en une commande.
 
 ```bash
 # 1. Générer des credentials PostgreSQL éphémères
@@ -154,21 +151,21 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
 # → FATAL: password authentication failed ✓
 ```
 
-**Phrase jury :** "Aucun mot de passe stocké nulle part. Vault génère, Vault
-révoque. Un attaquant qui exfiltre la config de l'app n'a rien d'exploitable."
+Aucun mot de passe stocké nulle part. Vault génère, Vault
+révoque. Un attaquant qui exfiltre la config de l'app n'a rien d'exploitable.
 
 ---
 
-### Test 3 — Transit (chiffrement as a service)
+### Test 3 - Transit (chiffrement as a service)
 
 **Ce qu'on démontre :** l'application délègue entièrement la gestion des clés
-de chiffrement à Vault. Elle ne voit jamais les clés — elle envoie une donnée
-sensible à Vault, récupère un ciphertext opaque, et le stocke en base.
+de chiffrement à Vault. Elle ne voit jamais les clés, elle envoie une donnée
+sensible à Vault, récupère un ciphertext opaque et le stocke en base.
 Même avec un dump complet de PostgreSQL, les données sont illisibles sans
 accès à Vault.
 
 **Usecase concret :** stocker des IBAN, numéros de carte, données de santé
-en base de données sans jamais les exposer en clair — conformité RGPD/PCI-DSS
+en base de données sans jamais les exposer en clair - conformité RGPD/PCI-DSS
 sans gérer une PKI interne.
 
 ```bash
@@ -184,13 +181,13 @@ vault write -field=plaintext transit/decrypt/app-key \
 # → IBAN-FR7612345678 ✓
 ```
 
-**Phrase jury :** "Le dump de la base ne sert à rien. La clé ne quitte jamais
-Vault. C'est Vault qui chiffre, c'est Vault qui déchiffre — l'application
-n'est qu'un intermédiaire."
+Le dump de la base ne sert à rien. La clé ne quitte jamais
+Vault. C'est Vault qui chiffre, c'est Vault qui déchiffre - l'application
+n'est qu'un intermédiaire.
 
 ---
 
-### Test 4 — vault-ssh-helper (vérification config)
+### Test 4 - vault-ssh-helper (vérification config)
 
 **Ce que c'est :** validation que vault-ssh-helper est correctement installé
 sur les workloads et peut joindre Vault. Utile en début de démo pour montrer
@@ -242,9 +239,9 @@ vault write transit/decrypt/app-key \
 
 ---
 
-## Démo soutenance
+## Démo
 
-### Démo 1 — SSH OTP (90 secondes)
+### Démo 1 - SSH OTP
 
 ```bash
 # Montrer que l'OTP est à usage unique
@@ -252,13 +249,12 @@ vault write ssh/creds/otp-role ip=10.0.0.20
 # → key: b4e9-3fa1-c721-8d02
 
 ssh ubuntu@10.0.0.20   # password = OTP → OK
-ssh ubuntu@10.0.0.20   # même OTP → Permission denied ← MOMENT CLÉ
+ssh ubuntu@10.0.0.20   # même OTP → Permission denied ← MOMENT CLE
 
-# Phrase jury :
-# "Ce credential n'existe plus — ni dans Vault, ni sur la VM. Consommé."
+# Ce credential n'existe plus, ni dans Vault, ni sur la VM. Il est consommé
 ```
 
-### Démo 2 — DB dynamic secrets (60 secondes)
+### Démo 2 - DB dynamic secrets
 
 ```bash
 vault read database/creds/app-role
@@ -272,23 +268,44 @@ psql -U v-root-app-XxXx -d appdb -h localhost
 vault lease revoke database/creds/app-role/<lease_id>
 # → user supprimé de PostgreSQL
 
-# Phrase jury :
-# "Aucun mot de passe stocké nulle part. Vault génère, Vault révoque."
+# Aucun mot de passe stocké nulle part. Vault génère, Vault révoque
 ```
+
+### Démo 3 - Transit (chiffrement as a service)
+
+```bash
+# Chiffrer une donnée sensible (IBAN, numéro de carte...)
+vault write -field=ciphertext transit/encrypt/app-key \
+  plaintext=$(echo -n "IBAN-FR7612345678" | base64)
+# → vault:v1:8SDd3WHDOjf7KAwnmB...  ← c'est ce qui est stocké en base de données
+
+# Déchiffrer (uniquement par une app autorisée par Vault)
+vault write -field=plaintext transit/decrypt/app-key \
+  ciphertext="vault:v1:8SDd3WHDOjf7KAwnmB..." | base64 -d
+# → IBAN-FR7612345678 ✓
+
+# La clé ne quitte jamais Vault. Même un dump de la base ne révèle rien sans accès Vault.
+```
+
+**Phrase jury :** "La base de données ne contient que du chiffré. Sans Vault, un attaquant qui exfiltre la base ne voit que `vault:v1:...`. La clé de déchiffrement n'existe nulle part ailleurs."
 
 ---
 
 ## Commandes de référence
 
-> Toutes les commandes `vault` requièrent `VAULT_ADDR` et `VAULT_TOKEN` dans l'environnement.  
-> `export VAULT_ADDR=http://10.0.0.10:8200`  
-> `export VAULT_TOKEN=$(ssh -i ~/.ssh/devsecops ubuntu@10.0.0.10 'sudo cat /root/vault-init.json' | jq -r .root_token)`
+> Toutes les commandes `vault` requièrent `VAULT_ADDR` et `VAULT_TOKEN` dans l'environnement. 
 
-### État général
+```
+`export VAULT_ADDR=http://10.0.0.10:8200`
+
+`export VAULT_TOKEN=$(ssh -i ~/.ssh/devsecops ubuntu@10.0.0.10 'sudo cat /root/vault-init.json' | jq -r .root_token)`
+```
+
+### Etat général
 
 ```bash
 vault status
-# Initialized / Sealed / HA — santé globale du cluster
+# Initialized / Sealed / HA - santé globale du cluster
 
 vault secrets list
 # Liste les secrets engines montés (ssh/, database/, transit/, kv/)
@@ -387,11 +404,11 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.10 \
 
 ---
 
-## Pièges
+## Troubleshooting
 
 | Piège | Solution |
 |---|---|
-| Vault sealed au redémarrage | Unseal scripté dans bootstrap.yml — rejouer le playbook |
+| Vault sealed au redémarrage | Unseal scripté dans bootstrap.yml - rejouer le playbook |
 | `@include common-auth` commenté casse d'autres auth | `pam_unix optional` en fallback conserve l'auth clé SSH |
 | PostgreSQL n'écoute que sur localhost | `listen_addresses = '*'` + pg_hba host rule depuis 10.0.0.10 |
 | vault-ssh-helper `-dev` vs `tls_skip_verify` | On utilise `tls_skip_verify = true` dans config.hcl (TLS désactivé sur Vault) |
