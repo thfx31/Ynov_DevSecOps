@@ -153,6 +153,22 @@ spire-status: ## Etat SPIRE : agents attestés + registration entries
 	done
 	@echo ""
 
+# ── Terraform ────────────────────────────────────────────────────────────────
+
+.PHONY: tf-init tf-plan tf-apply tf-destroy
+
+tf-init: ## Initialiser Terraform (plugins + modules)
+	cd terraform && terraform init
+
+tf-plan: ## Prévisualiser les changements Terraform
+	cd terraform && terraform plan
+
+tf-apply: ## Créer / mettre à jour les VMs
+	cd terraform && terraform apply
+
+tf-destroy: ## Détruire toutes les VMs (irréversible)
+	cd terraform && terraform destroy
+
 # ── Infrastructure ────────────────────────────────────────────────────────────
 
 .PHONY: infra-up infra-down infra-status
