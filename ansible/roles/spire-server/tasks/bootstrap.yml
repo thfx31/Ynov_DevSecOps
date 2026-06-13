@@ -1,0 +1,63 @@
+---
+# ── Bundle — distribué aux agents pour valider l'identité du serveur ──────────
+
+- name: Export trust bundle
+  ansible.builtin.command: >
+    {{ spire_install_dir }}/bin/spire-server bundle show
+    -socketPath {{ spire_server_socket }}
+  register: spire_bundle
+  changed_when: false
+
+- name: Save bundle on server
+  ansible.builtin.copy:
+
+    content: "{{ spire_bundle.stdout }}"
+    dest: "{{ spire_conf_dir }}/server/bundle.crt"
+    mode: "0644"
+
+- name: Fetch bundle to Ansible controller
+  ansible.builtin.fetch:
+
+    src: "{{ spire_conf_dir }}/server/bundle.crt"
+    dest: /tmp/spire-bundle.crt
+    flat: true
+
+# ── Registration entries — qui peut obtenir quel SVID ─────────────────────────
+
+- name: Check registration entry for workload-a
+  ansible.builtin.command: >
+    {{ spire_install_dir }}/bin/spire-server entry show
+    -spiffeID spiffe://{{ spire_trust_domain }}/workload/app-a
+    -socketPath {{ spire_server_socket }}
+  register: entry_a
+  changed_when: false
+  failed_when: false
+
+- name: Create registration entry for workload-a
+  ansible.builtin.command: >
+    {{ spire_install_dir }}/bin/spire-server entry create
+    -spiffeID spiffe://{{ spire_trust_domain }}/workload/app-a
+    -parentID spiffe://{{ spire_trust_domain }}/node/workload-a
+    -selector unix:uid:1000
+    -socketPath {{ spire_server_socket }}
+  when: '"workload/app-a" not in entry_a.stdout'
+  changed_when: true
+
+- name: Check registration entry for workload-b
+  ansible.builtin.command: >
+    {{ spire_install_dir }}/bin/spire-server entry show
+    -spiffeID spiffe://{{ spire_trust_domain }}/workload/app-b
+    -socketPath {{ spire_server_socket }}
+  register: entry_b
+  changed_when: false
+  failed_when: false
+
+- name: Create registration entry for workload-b
+  ansible.builtin.command: >
+    {{ spire_install_dir }}/bin/spire-server entry create
+    -spiffeID spiffe://{{ spire_trust_domain }}/workload/app-b
+    -parentID spiffe://{{ spire_trust_domain }}/node/workload-b
+    -selector unix:uid:1000
+    -socketPath {{ spire_server_socket }}
+  when: '"workload/app-b" not in entry_b.stdout'
+  changed_when: true

@@ -1,0 +1,18 @@
+[Unit]
+Description=SPIRE Agent
+Documentation=https://spiffe.io
+After=network.target spire-server.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/mkdir -p /tmp/spire-agent/public
+EnvironmentFile={{ spire_conf_dir }}/agent/join-token.env
+ExecStart={{ spire_install_dir }}/bin/spire-agent run \
+  -config {{ spire_conf_dir }}/agent/agent.conf \
+  -joinToken ${SPIRE_JOIN_TOKEN}
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

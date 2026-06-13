@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: vault_agent
+  author: Thomas Fx
+  description: Configure vault-ssh-helper (PAM OTP) et PostgreSQL sur les workloads
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions: ["24.04"]
+
+dependencies: []

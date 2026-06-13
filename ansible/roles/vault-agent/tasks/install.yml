@@ -1,0 +1,44 @@
+---
+- name: Install prerequisites
+  ansible.builtin.apt:
+
+    name: [unzip, libpam-dev, jq, acl]
+    state: present
+    update_cache: true
+
+- name: Check if vault-ssh-helper is already installed
+  ansible.builtin.stat:
+
+    path: "{{ vault_ssh_helper_bin }}"
+  register: helper_stat
+
+- name: Download vault-ssh-helper
+  ansible.builtin.get_url:
+
+    url: "https://releases.hashicorp.com/vault-ssh-helper/{{ vault_ssh_helper_version }}/vault-ssh-helper_{{ vault_ssh_helper_version }}_linux_amd64.zip"
+    dest: /tmp/vault-ssh-helper.zip
+    mode: "0644"
+  when: not helper_stat.stat.exists
+
+- name: Extract vault-ssh-helper
+  ansible.builtin.unarchive:
+
+    src: /tmp/vault-ssh-helper.zip
+    dest: /usr/local/bin/
+    remote_src: true
+    mode: "0755"
+  when: not helper_stat.stat.exists
+
+- name: Create vault-ssh-helper config directory
+  ansible.builtin.file:
+
+    path: "{{ vault_ssh_helper_config_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy vault-ssh-helper configuration
+  ansible.builtin.template:
+
+    src: vault-ssh-helper.conf.j2
+    dest: "{{ vault_ssh_helper_config_dir }}/config.hcl"
+    mode: "0644"

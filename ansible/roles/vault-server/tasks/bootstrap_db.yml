@@ -1,0 +1,40 @@
+---
+# Configuré en Play 3, après que PostgreSQL soit installé sur workload-a
+
+- name: Read Vault init file
+  slurp:
+    src: "{{ vault_init_file }}"
+  register: vault_init_slurp
+
+- name: Set root token
+  ansible.builtin.set_fact:
+
+    vault_root_token: "{{ vault_init_slurp.content | b64decode | from_json | json_query('root_token') }}"
+
+- name: Configure PostgreSQL connection
+  ansible.builtin.command: >
+    vault write database/config/postgresql
+    plugin_name=postgresql-database-plugin
+    connection_url="postgresql://{{ '{{username}}' }}:{{ '{{password}}' }}@{{ vault_db_host }}:{{ vault_db_port }}/{{ vault_db_name }}?sslmode=disable"
+    username="{{ vault_db_admin_user }}"
+    password="{{ vault_db_admin_password }}"
+    allowed_roles="app-role"
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  changed_when: true
+
+- name: Create database role for dynamic credentials
+  ansible.builtin.command: >
+    vault write database/roles/app-role
+    db_name=postgresql
+    creation_statements="CREATE ROLE \"{{ '{{name}}' }}\" WITH LOGIN PASSWORD '{{ '{{password}}' }}'
+    VALID UNTIL '{{ '{{expiration}}' }}';
+    GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO \"{{ '{{name}}' }}\";
+    GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO \"{{ '{{name}}' }}\";"
+    default_ttl="{{ vault_db_default_ttl }}"
+    max_ttl="{{ vault_db_max_ttl }}"
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  changed_when: true

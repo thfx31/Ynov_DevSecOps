@@ -1,0 +1,32 @@
+server {
+  bind_address = "0.0.0.0"
+  bind_port    = "{{ spire_server_port }}"
+  trust_domain = "{{ spire_trust_domain }}"
+  data_dir     = "{{ spire_data_dir }}/server"
+  log_level    = "{{ spire_log_level }}"
+  socket_path  = "{{ spire_server_socket }}"
+
+  # TTL courte pour rendre le renouvellement automatique visible en démo
+  default_x509_svid_ttl = "{{ spire_svid_ttl }}"
+  ca_ttl           = "{{ spire_ca_ttl }}"
+}
+
+plugins {
+  DataStore "sql" {
+    plugin_data {
+      database_type     = "sqlite3"
+      connection_string = "{{ spire_data_dir }}/server/datastore.sqlite3"
+    }
+  }
+
+  NodeAttestor "join_token" {
+    plugin_data {}
+  }
+
+  # disk : les clés CA survivent au redémarrage du serveur
+  KeyManager "disk" {
+    plugin_data {
+      keys_path = "{{ spire_data_dir }}/server/keys.json"
+    }
+  }
+}

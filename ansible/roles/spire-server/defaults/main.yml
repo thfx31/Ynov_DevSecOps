@@ -1,0 +1,18 @@
+---
+spire_version: "1.9.4"
+spire_install_dir: /opt/spire
+spire_data_dir: /opt/spire/data
+spire_conf_dir: /opt/spire/conf
+spire_log_level: INFO
+
+spire_trust_domain: example.org
+spire_server_port: 8081
+spire_server_socket: /tmp/spire-server/private/api.sock
+
+# TTL courte pour rendre le renouvellement visible pendant la démo
+spire_svid_ttl: "5m"
+spire_ca_ttl: "24h"
+
+spire_workloads:
+  - { name: workload-a, spiffe_suffix: app-a }
+  - { name: workload-b, spiffe_suffix: app-b }

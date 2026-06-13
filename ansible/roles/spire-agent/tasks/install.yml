@@ -1,0 +1,44 @@
+---
+- name: Install prerequisites
+  ansible.builtin.apt:
+
+    name: [curl, tar]
+    state: present
+
+- name: Check if SPIRE agent is already installed
+  ansible.builtin.stat:
+
+    path: "{{ spire_install_dir }}/bin/spire-agent"
+  register: spire_bin
+
+- name: Download SPIRE tarball
+  ansible.builtin.get_url:
+
+    url: "https://github.com/spiffe/spire/releases/download/v{{ spire_version }}/spire-{{ spire_version }}-linux-amd64-musl.tar.gz"
+    dest: /tmp/spire.tar.gz
+    mode: "0644"
+  when: not spire_bin.stat.exists
+
+- name: Create SPIRE install directory
+  ansible.builtin.file:
+
+    path: "{{ spire_install_dir }}/bin"
+    state: directory
+    mode: "0755"
+
+- name: Extract SPIRE
+  ansible.builtin.unarchive:
+
+    src: /tmp/spire.tar.gz
+    dest: /tmp/
+    remote_src: true
+  when: not spire_bin.stat.exists
+
+- name: Install SPIRE agent binary
+  ansible.builtin.copy:
+
+    src: "/tmp/spire-{{ spire_version }}/bin/spire-agent"
+    dest: "{{ spire_install_dir }}/bin/spire-agent"
+    mode: "0755"
+    remote_src: true
+  when: not spire_bin.stat.exists

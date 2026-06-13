@@ -1,0 +1,12 @@
+---
+spire_version: "1.9.4"
+spire_install_dir: /opt/spire
+spire_data_dir: /opt/spire/data
+spire_conf_dir: /opt/spire/conf
+spire_log_level: INFO
+
+spire_trust_domain: example.org
+spire_server_address: "10.0.0.11"
+spire_server_port: 8081
+spire_agent_socket: /tmp/spire-agent/public/api.sock
+spire_server_socket: /tmp/spire-server/private/api.sock

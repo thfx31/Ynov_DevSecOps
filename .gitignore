@@ -1,0 +1,22 @@
+CONTEXT.md
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+*.tfvars
+
+# Packer output
+packer/output/
+
+# SSH keys
+*.pem
+id_rsa
+id_ed25519
+
+# IDE
+*.swp
+.vscode/
+.idea/

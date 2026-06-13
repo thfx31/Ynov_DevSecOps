@@ -1,0 +1,16 @@
+[Unit]
+Description=SPIRE Server
+Documentation=https://spiffe.io
+After=network.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/mkdir -p /tmp/spire-server/private
+ExecStart={{ spire_install_dir }}/bin/spire-server run \
+  -config {{ spire_conf_dir }}/server/server.conf
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

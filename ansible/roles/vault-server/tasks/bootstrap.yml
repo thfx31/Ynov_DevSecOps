@@ -1,0 +1,225 @@
+---
+- name: Check Vault status
+  ansible.builtin.command: vault status -format=json
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+  register: vault_status_raw
+  failed_when: vault_status_raw.rc not in [0, 2]
+  changed_when: false
+
+- name: Parse Vault status
+  ansible.builtin.set_fact:
+
+    vault_status: "{{ vault_status_raw.stdout | from_json }}"
+
+# ── Init ─────────────────────────────────────────────────────────────────────
+
+- name: Initialize Vault (first run only)
+  ansible.builtin.command: >
+    vault operator init
+    -key-shares=1
+    -key-threshold=1
+    -format=json
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+  register: vault_init_raw
+  when: not vault_status.initialized
+
+- name: Save init output to file
+  ansible.builtin.copy:
+
+    content: "{{ vault_init_raw.stdout }}"
+    dest: "{{ vault_init_file }}"
+    mode: "0400"
+  when: not vault_status.initialized
+
+# ── Unseal ────────────────────────────────────────────────────────────────────
+
+- name: Read init file
+  slurp:
+    src: "{{ vault_init_file }}"
+  register: vault_init_slurp
+
+- name: Parse init data
+  ansible.builtin.set_fact:
+
+    vault_init_data: "{{ vault_init_slurp.content | b64decode | from_json }}"
+
+- name: Unseal Vault if sealed
+  ansible.builtin.command: vault operator unseal "{{ vault_init_data.unseal_keys_b64[0] }}"
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+  when: vault_status.sealed
+  changed_when: true
+
+- name: Set root token fact
+  ansible.builtin.set_fact:
+
+    vault_root_token: "{{ vault_init_data.root_token }}"
+
+# ── Audit log ─────────────────────────────────────────────────────────────────
+
+- name: Enable file audit log
+  ansible.builtin.command: vault audit enable file file_path={{ vault_log_dir }}/audit.log
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: result
+  failed_when: result.rc != 0 and 'path already in use' not in result.stderr
+  changed_when: result.rc == 0
+
+# ── Auth: AppRole ─────────────────────────────────────────────────────────────
+
+- name: Enable AppRole auth method
+  ansible.builtin.command: vault auth enable approle
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: result
+  failed_when: result.rc != 0 and 'path is already in use' not in result.stderr
+  changed_when: result.rc == 0
+
+- name: Create AppRole for workload-a
+  ansible.builtin.command: >
+    vault write auth/approle/role/workload-a
+    secret_id_ttl=24h
+    token_ttl=1h
+    token_max_ttl=24h
+    token_policies=app-policy
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  changed_when: true
+
+- name: Create AppRole for workload-b
+  ansible.builtin.command: >
+    vault write auth/approle/role/workload-b
+    secret_id_ttl=24h
+    token_ttl=1h
+    token_max_ttl=24h
+    token_policies=app-policy
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  changed_when: true
+
+# ── Secrets: SSH OTP ──────────────────────────────────────────────────────────
+
+- name: Enable SSH secrets engine
+  ansible.builtin.command: vault secrets enable ssh
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: result
+  failed_when: result.rc != 0 and 'path is already in use' not in result.stderr
+  changed_when: result.rc == 0
+
+- name: Configure SSH OTP role
+  ansible.builtin.command: >
+    vault write ssh/roles/otp-role
+    key_type=otp
+    default_user=ubuntu
+    cidr_list={{ vault_ssh_allowed_cidr | default('10.0.0.0/24') }}
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  changed_when: true
+
+# ── Secrets: Database ─────────────────────────────────────────────────────────
+
+- name: Enable database secrets engine
+  ansible.builtin.command: vault secrets enable database
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: result
+  failed_when: result.rc != 0 and 'path is already in use' not in result.stderr
+  changed_when: result.rc == 0
+
+# ── Secrets: Transit ──────────────────────────────────────────────────────────
+
+- name: Enable Transit secrets engine
+  ansible.builtin.command: vault secrets enable transit
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: result
+  failed_when: result.rc != 0 and 'path is already in use' not in result.stderr
+  changed_when: result.rc == 0
+
+- name: Create Transit encryption key
+  ansible.builtin.command: vault write -f transit/keys/app-key
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: result
+  failed_when: result.rc != 0 and 'already exists' not in result.stderr
+  changed_when: result.rc == 0
+
+# ── Policy ────────────────────────────────────────────────────────────────────
+
+- name: Deploy app policy
+  ansible.builtin.command: vault policy write app-policy -
+  args:
+    stdin: "{{ lookup('file', playbook_dir + '/../../vault/policies/app-policy.hcl') }}"
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  changed_when: true
+
+# ── Save role IDs for workloads ───────────────────────────────────────────────
+
+- name: Get workload-a role-id
+  ansible.builtin.command: vault read -field=role_id auth/approle/role/workload-a/role-id
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: workload_a_role_id
+  changed_when: false
+
+- name: Get workload-b role-id
+  ansible.builtin.command: vault read -field=role_id auth/approle/role/workload-b/role-id
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: workload_b_role_id
+  changed_when: false
+
+- name: Generate workload-a secret-id
+  ansible.builtin.command: vault write -field=secret_id -f auth/approle/role/workload-a/secret-id
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: workload_a_secret_id
+  changed_when: true
+
+- name: Generate workload-b secret-id
+  ansible.builtin.command: vault write -field=secret_id -f auth/approle/role/workload-b/secret-id
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_TOKEN: "{{ vault_root_token }}"
+  register: workload_b_secret_id
+  changed_when: true
+
+- name: Save AppRole credentials for workloads
+  ansible.builtin.copy:
+
+    content: |
+      # Vault AppRole credentials — injectés par Ansible sur les workloads
+      # NE PAS committer ce fichier
+      workload_a_role_id: {{ workload_a_role_id.stdout }}
+      workload_a_secret_id: {{ workload_a_secret_id.stdout }}
+      workload_b_role_id: {{ workload_b_role_id.stdout }}
+      workload_b_secret_id: {{ workload_b_secret_id.stdout }}
+    dest: /root/vault-approle-credentials.yml
+    mode: "0400"
+  no_log: true
+
+- name: Show Vault bootstrap summary
+  ansible.builtin.debug:
+
+    msg:
+      - "=== Vault bootstrap terminé ==="
+      - "Unseal key et root token : {{ vault_init_file }}"
+      - "AppRole credentials  : /root/vault-approle-credentials.yml"
+      - "VAULT_ADDR           : {{ vault_api_addr }}"

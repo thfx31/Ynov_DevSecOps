@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: spire_server
+  author: Thomas Fx
+  description: Déploie SPIRE Server (SQLite, join_token, KeyManager disk) et crée les registration entries
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions: ["24.04"]
+
+dependencies: []

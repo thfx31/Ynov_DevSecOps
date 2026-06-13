@@ -1,0 +1,18 @@
+---
+vault_data_dir: /opt/vault/data
+vault_log_dir: /var/log/vault
+vault_config_dir: /etc/vault.d
+vault_addr: "http://127.0.0.1:8200"
+vault_api_addr: "http://10.0.0.10:8200"
+vault_init_file: /root/vault-init.json
+
+# PostgreSQL sur workload-a — utilisé par le database secrets engine
+vault_db_host: "10.0.0.20"
+vault_db_port: 5432
+vault_db_name: appdb
+vault_db_admin_user: vault_admin
+vault_db_admin_password: "VaultAdmin2024!"
+
+# TTL des credentials dynamiques DB
+vault_db_default_ttl: "1h"
+vault_db_max_ttl: "24h"

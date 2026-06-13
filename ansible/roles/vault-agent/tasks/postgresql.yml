@@ -1,0 +1,75 @@
+---
+# Uniquement sur workload-a
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+
+    name: [postgresql, postgresql-contrib, python3-psycopg2]
+    state: present
+    update_cache: true
+
+- name: Ensure PostgreSQL is started
+  ansible.builtin.systemd:
+
+    name: postgresql
+    enabled: true
+    state: started
+
+- name: Create appdb database
+  become_user: postgres
+  postgresql_db:
+    name: "{{ vault_db_name }}"
+    state: present
+
+- name: Create vault_admin user
+  become_user: postgres
+  postgresql_user:
+    name: "{{ vault_db_admin_user }}"
+    password: "{{ vault_db_admin_password }}"
+    role_attr_flags: CREATEROLE,LOGIN
+    state: present
+  no_log: true
+
+- name: Grant all privileges on appdb to vault_admin
+  become_user: postgres
+  postgresql_privs:
+    db: "{{ vault_db_name }}"
+    privs: ALL
+    type: database
+    role: "{{ vault_db_admin_user }}"
+
+- name: Allow vault_admin to grant on public schema
+  become_user: postgres
+  postgresql_privs:
+    db: "{{ vault_db_name }}"
+    privs: ALL
+    type: schema
+    objs: public
+    role: "{{ vault_db_admin_user }}"
+
+# PostgreSQL écoute sur 0.0.0.0 pour que Vault puisse se connecter depuis 10.0.0.10
+- name: Configure PostgreSQL to listen on all interfaces
+  ansible.builtin.lineinfile:
+
+    path: /etc/postgresql/{{ postgresql_version | default('16') }}/main/postgresql.conf
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = '*'"
+  notify: restart postgresql
+
+- name: Allow PostgreSQL port from vault-server
+  community.general.ufw:
+
+    rule: allow
+    from_ip: "10.0.0.10"
+    to_port: "5432"
+    proto: tcp
+    comment: "Vault database engine"
+
+- name: Allow vault_admin from vault-server in pg_hba.conf
+  postgresql_pg_hba:
+    dest: /etc/postgresql/{{ postgresql_version | default('16') }}/main/pg_hba.conf
+    contype: host
+    databases: "{{ vault_db_name }}"
+    users: "{{ vault_db_admin_user }}"
+    source: "10.0.0.10/32"
+    method: md5
+  notify: restart postgresql

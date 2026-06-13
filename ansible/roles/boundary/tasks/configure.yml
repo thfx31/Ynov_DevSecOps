@@ -1,0 +1,27 @@
+---
+- name: Deploy boundary systemd service
+  ansible.builtin.template:
+    src: boundary-dev.service.j2
+    dest: /etc/systemd/system/boundary-dev.service
+    mode: "0644"
+  notify: restart boundary-dev
+
+- name: Enable and start boundary dev
+  ansible.builtin.systemd:
+    name: boundary-dev
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Flush handlers (applique restart si service changé)
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for boundary API port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9200
+    timeout: 30
+
+- name: Wait for boundary API to initialize
+  ansible.builtin.pause:
+    seconds: 5

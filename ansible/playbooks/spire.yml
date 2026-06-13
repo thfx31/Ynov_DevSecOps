@@ -1,0 +1,15 @@
+---
+# SPIRE server (install + start + bundle + registration entries)
+# SPIRE agents (install + bundle depuis controller + join token depuis server + start)
+
+- name: Deploy SPIRE server
+  hosts: spire_servers
+  become: true
+  roles:
+    - spire-server
+
+- name: Deploy SPIRE agents
+  hosts: workloads
+  become: true
+  roles:
+    - spire-agent

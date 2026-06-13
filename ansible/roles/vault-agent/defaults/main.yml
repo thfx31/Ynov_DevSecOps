@@ -1,0 +1,13 @@
+---
+vault_ssh_helper_version: "0.2.1"
+vault_ssh_helper_bin: /usr/local/bin/vault-ssh-helper
+vault_ssh_helper_config_dir: /etc/vault-ssh-helper.d
+
+vault_addr: "http://10.0.0.10:8200"
+vault_ssh_allowed_cidr: "10.0.0.0/24"
+vault_ssh_helper_log: /var/log/vault-ssh.log
+
+# PostgreSQL (workload-a uniquement)
+vault_db_name: appdb
+vault_db_admin_user: vault_admin
+vault_db_admin_password: "VaultAdmin2024!"

@@ -1,0 +1,25 @@
+agent {
+  data_dir          = "{{ spire_data_dir }}/agent"
+  log_level         = "{{ spire_log_level }}"
+  trust_domain      = "{{ spire_trust_domain }}"
+  server_address    = "{{ spire_server_address }}"
+  server_port       = "{{ spire_server_port }}"
+  socket_path       = "{{ spire_agent_socket }}"
+  trust_bundle_path = "{{ spire_conf_dir }}/agent/bootstrap.crt"
+}
+
+plugins {
+  NodeAttestor "join_token" {
+    plugin_data {}
+  }
+
+  KeyManager "memory" {
+    plugin_data {}
+  }
+
+  WorkloadAttestor "unix" {
+    plugin_data {
+      discover_workload_path = true
+    }
+  }
+}

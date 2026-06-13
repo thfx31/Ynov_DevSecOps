@@ -1,0 +1,149 @@
+# Bloc 5 — Pipeline CI/CD GitHub Actions
+
+---
+
+## Objectif
+
+Chaque push sur `main` déclenche un pipeline de sécurité automatique qui vérifie
+le code IaC, scanne les vulnérabilités, et signe les images avant déploiement.
+
+**Principe zero-trust appliqué au code :** on ne fait pas confiance au code
+parce qu'il vient d'un développeur connu — on le vérifie à chaque commit.
+
+---
+
+## Jobs du pipeline
+
+```
+push → main
+    │
+    ├── terraform-lint   tflint        ← syntaxe et bonnes pratiques Terraform
+    ├── checkov          Checkov       ← problèmes de sécurité dans l'IaC
+    ├── ansible-lint     ansible-lint  ← qualité des playbooks Ansible
+    ├── semgrep          Semgrep       ← SAST (failles dans le code)
+    ├── trivy            Trivy         ← CVE scan image Docker (bloquant si CRITICAL)
+    ├── zap              OWASP ZAP     ← DAST baseline sur l'app de démo
+    └── cosign           Cosign        ← signature keyless de l'image (après Trivy)
+```
+
+---
+
+## Détail des jobs
+
+### terraform-lint — tflint
+
+**Ce que ça vérifie :** syntaxe Terraform, variables non utilisées, types
+incorrects, conventions de nommage.
+
+**Bloquant :** oui — un Terraform mal formé ne doit pas partir en prod.
+
+### checkov — sécurité IaC
+
+**Ce que ça vérifie :** problèmes de sécurité dans la déclaration d'infrastructure.
+Exemples : VM sans chiffrement disque, security group trop permissif, S3 public.
+
+**Bloquant :** oui sur Terraform, `soft_fail: true` sur Ansible (résultats
+informatifs sans bloquer le pipeline).
+
+**Checks skippés (justifiés) :**
+- `CKV_TF_1` : pas de hash de module Git (lab local, pas de registry public)
+- `CKV2_GIT_1` : même raison
+
+### ansible-lint
+
+**Ce que ça vérifie :** FQCN des modules (`ansible.builtin.apt` vs `apt`),
+idempotence, tâches sans `name`, `become` non nécessaire.
+
+**Bloquant :** oui — un playbook non conforme peut avoir des comportements
+imprévisibles sur des versions différentes d'Ansible.
+
+### semgrep — SAST
+
+**Ce que ça vérifie :** patterns de sécurité dans le code source. Secrets en dur,
+injections, appels dangereux.
+
+**Bloquant :** oui (`--error`). Les fichiers `.tfstate` sont exclus (contiennent
+des données d'état non-code).
+
+### trivy — CVE scan image de base Packer
+
+**Ce que ça vérifie :** CVE connues dans `ubuntu:24.04`, l'image de base
+utilisée par Packer pour construire la VM.
+
+**Bloquant :** oui si CVE `CRITICAL` non fixée (`ignore-unfixed: true` pour ne
+pas bloquer sur des CVE sans patch disponible).
+
+**Pourquoi pas l'image Packer finale ?**
+Les runners GitHub Actions (Linux) n'ont pas la virtualisation imbriquée (KVM)
+activée — Packer ne peut pas construire l'image QEMU en CI. Deux options ont
+été évaluées :
+- Dockerfile représentatif → risque de drift avec le script CIS réel
+- Scanner `ubuntu:24.04` directement → honnête, pas de drift, couvre les CVE de base
+
+On scanne la base. En production avec un runner self-hosted KVM, on
+scannerait l'image QEMU finale extraite après `packer build`.
+
+### OWASP ZAP — DAST
+
+**Ce que ça vérifie :** vulnérabilités web sur l'app de démo en cours d'exécution.
+ZAP baseline = scan passif, détecte headers manquants, cookies non sécurisés.
+
+**Bloquant :** `fail_action: false` — informatif (faux positifs sur apps minimalistes).
+
+### cosign — signature keyless
+
+**Ce que ça fait :** signe l'image Docker avec une identité OIDC GitHub Actions.
+Pas de clé privée à gérer — la clé n'existe que le temps de la signature, liée
+à l'identité OIDC du job. Vérifiable publiquement via Rekor (Sigstore).
+
+**Bloquant :** oui — tourne uniquement après Trivy (`needs: trivy`).
+Une image avec CVE CRITICAL n'est jamais signée, donc jamais déployable.
+
+**Nécessite :** `permissions: id-token: write` sur le job (OIDC GitHub).
+
+---
+
+## Procédure de test
+
+### Pousser le pipeline
+
+```bash
+git add .github/workflows/ci.yml terraform/.tflint.hcl
+git commit -m "feat: pipeline CI DevSecOps"
+git push origin main
+```
+
+Sur GitHub → onglet **Actions** → pipeline `DevSecOps CI`.
+
+### Vérifier la signature Cosign
+
+```bash
+cosign verify \
+  --certificate-identity-regexp="https://github.com/<owner>/.*" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/<owner>/devsecops-demo:<sha>
+```
+
+---
+
+## Ce qu'on démontre en soutenance
+
+**Phrase jury :** "Chaque commit déclenche un pipeline qui vérifie la sécurité
+du code IaC, scanne les CVE, teste l'app en boîte noire, et signe l'image.
+Un ingénieur ne peut pas pousser du code non vérifié en production."
+
+**Moment fort :** pipeline vert sur GitHub Actions. Si Trivy trouve une CVE
+CRITICAL, le job `cosign` ne tourne pas — l'image n'est jamais signée,
+donc jamais déployable.
+
+---
+
+## Pièges et solutions
+
+| Piège | Cause | Solution |
+|---|---|---|
+| tflint init échoue | Pas de `.tflint.hcl` | Fichier créé dans `terraform/` |
+| Checkov bloque sur checks non pertinents | Lab local ≠ cloud | `skip_check` avec justification |
+| ansible-lint échoue sur FQCN | Modules sans namespace (`apt` au lieu de `ansible.builtin.apt`) | Passe FQCN planifiée avant ce bloc |
+| Cosign échoue | `id-token: write` manquant | Ajouté dans `permissions` du job |
+| ZAP timeout | App de démo pas démarrée | `sleep 3` après `docker run` avant le scan |

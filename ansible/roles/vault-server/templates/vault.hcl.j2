@@ -1,0 +1,18 @@
+ui = true
+disable_mlock = true
+
+storage "raft" {
+  path    = "{{ vault_data_dir }}"
+  node_id = "vault-node-01"
+}
+
+listener "tcp" {
+  address     = "0.0.0.0:8200"
+  tls_disable = 1
+}
+
+api_addr     = "{{ vault_api_addr }}"
+cluster_addr = "https://10.0.0.10:8201"
+
+default_lease_ttl = "1h"
+max_lease_ttl     = "24h"

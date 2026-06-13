@@ -1,0 +1,53 @@
+---
+- name: Create SPIRE directories
+  ansible.builtin.file:
+
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ spire_data_dir }}/server"
+    - "{{ spire_conf_dir }}/server"
+    - /tmp/spire-server/private
+
+- name: Deploy SPIRE server config
+  ansible.builtin.template:
+
+    src: server.conf.j2
+    dest: "{{ spire_conf_dir }}/server/server.conf"
+    mode: "0644"
+  notify: restart spire-server
+
+- name: Deploy SPIRE server systemd service
+  ansible.builtin.template:
+
+    src: spire-server.service.j2
+    dest: /etc/systemd/system/spire-server.service
+    mode: "0644"
+  notify: restart spire-server
+
+- name: Allow SPIRE port from workloads
+  community.general.ufw:
+
+    rule: allow
+    from_ip: "10.0.0.0/24"
+    to_port: "{{ spire_server_port }}"
+    proto: tcp
+    comment: "SPIRE Agent attestation"
+
+- name: Enable and start SPIRE server
+  ansible.builtin.systemd:
+
+    name: spire-server
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Flush handlers (applique restart si config changée)
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for SPIRE server socket
+  ansible.builtin.wait_for:
+
+    path: "{{ spire_server_socket }}"
+    timeout: 30

@@ -1,0 +1,56 @@
+---
+# ── Authentification ──────────────────────────────────────────────────────────
+
+- name: Authenticate as admin
+  ansible.builtin.command: >
+    {{ boundary_install_dir }}/boundary authenticate password
+    -auth-method-id={{ boundary_auth_method_id }}
+    -login-name={{ boundary_admin_login }}
+    -password=env://BOUNDARY_PASSWORD
+    -format=json
+  environment:
+    BOUNDARY_ADDR: "{{ boundary_addr }}"
+    BOUNDARY_PASSWORD: "{{ boundary_admin_password }}"
+  register: boundary_auth
+  changed_when: false
+
+- name: Extract token
+  ansible.builtin.set_fact:
+    boundary_token: "{{ (boundary_auth.stdout | from_json).item.attributes.token }}"
+
+# ── Targets TCP (port 22) — compatibles avec boundary connect ssh ─────────────
+
+- name: List existing targets
+  ansible.builtin.command: >
+    {{ boundary_install_dir }}/boundary targets list
+    -scope-id={{ boundary_project_id }}
+    -token env://BOUNDARY_TOKEN
+  environment:
+    BOUNDARY_ADDR: "{{ boundary_addr }}"
+    BOUNDARY_TOKEN: "{{ boundary_token }}"
+  register: boundary_targets_list
+  changed_when: false
+  failed_when: false
+
+- name: Create TCP targets (SSH sur port 22)
+  ansible.builtin.command: >
+    {{ boundary_install_dir }}/boundary targets create tcp
+    -scope-id={{ boundary_project_id }}
+    -name={{ item.name }}
+    -address={{ item.address }}
+    -default-port={{ item.port }}
+    -token env://BOUNDARY_TOKEN
+    -format=json
+  environment:
+    BOUNDARY_ADDR: "{{ boundary_addr }}"
+    BOUNDARY_TOKEN: "{{ boundary_token }}"
+  loop: "{{ boundary_targets }}"
+  when: item.name not in (boundary_targets_list.stdout | default(''))
+  register: target_create
+  changed_when: true
+
+- name: Show target IDs
+  ansible.builtin.debug:
+    msg: "Target {{ item.item.name }} → {{ (item.stdout | from_json).item.id }}"
+  loop: "{{ target_create.results }}"
+  when: item.changed

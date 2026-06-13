@@ -1,0 +1,16 @@
+#cloud-config
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    lock_passwd: false
+
+# Mot de passe temporaire pour Packer — désactivé par cis-hardening.sh
+chpasswd:
+  list: "ubuntu:ubuntu"
+  expire: false
+
+ssh_pwauth: true
+
+package_update: false

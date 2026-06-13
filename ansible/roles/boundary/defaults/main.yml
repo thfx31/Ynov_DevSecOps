@@ -1,0 +1,16 @@
+---
+boundary_version: "0.16.2"
+boundary_install_dir: /usr/bin
+boundary_addr: "http://127.0.0.1:9200"
+
+# IDs stables en dev mode (hardcodés par Boundary)
+boundary_auth_method_id: "ampw_1234567890"
+boundary_org_id: "o_1234567890"
+boundary_project_id: "p_1234567890"
+
+boundary_admin_login: admin
+boundary_admin_password: password
+
+boundary_targets:
+  - { name: workload-a, address: "10.0.0.20", port: 22 }
+  - { name: workload-b, address: "10.0.0.21", port: 22 }

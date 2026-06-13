@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: boundary
+  author: Thomas Fx
+  description: Installe HashiCorp Boundary en dev mode et crée les targets SSH (workload-a, workload-b)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions: ["40", "41", "42"]
+
+dependencies: []

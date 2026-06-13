@@ -1,0 +1,47 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['localhost:9093']
+
+rule_files:
+  - "alerts/*.yml"
+
+scrape_configs:
+  # Métriques Vault — via vault-exporter
+  - job_name: 'vault'
+    static_configs:
+      - targets: ['10.0.0.10:9410']
+    metrics_path: /metrics
+
+  # Métriques SPIRE server (endpoint natif)
+  - job_name: 'spire-server'
+    static_configs:
+      - targets: ['10.0.0.11:8088']
+    metrics_path: /metrics
+
+  # Métriques SPIRE agent — workload-a et workload-b
+  - job_name: 'spire-agent'
+    static_configs:
+      - targets:
+          - '10.0.0.20:8088'
+          - '10.0.0.21:8088'
+    metrics_path: /metrics
+
+  # Boundary audit log — via node_exporter textfile collector
+  - job_name: 'boundary-audit'
+    static_configs:
+      - targets: ['localhost:9100']
+    metrics_path: /metrics
+
+  # node_exporter sur toutes les VMs
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - '10.0.0.10:9100'
+          - '10.0.0.11:9100'
+          - '10.0.0.20:9100'
+          - '10.0.0.21:9100'

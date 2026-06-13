@@ -1,0 +1,183 @@
+name: DevSecOps CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Lint Terraform ──────────────────────────────────────────────────────────
+  terraform-lint:
+    name: Terraform Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tflint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Init tflint
+        run: tflint --init
+        working-directory: terraform
+
+      - name: Run tflint
+        run: tflint --format=compact
+        working-directory: terraform
+
+  # ── Checkov — IaC security scan ────────────────────────────────────────────
+  checkov:
+    name: Checkov IaC Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov on Terraform
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform
+          framework: terraform
+          soft_fail: false
+          output_format: cli
+          # Faux positifs acceptés pour ce lab (TLS désactivé volontaire, pas de KMS)
+          skip_check: CKV_TF_1,CKV2_GIT_1
+
+      - name: Run Checkov on Ansible
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ansible
+          framework: ansible
+          soft_fail: true
+
+  # ── Ansible Lint ───────────────────────────────────────────────────────────
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ansible-lint
+        run: pip install ansible-lint
+
+      - name: Run ansible-lint
+        run: ansible-lint ansible/playbooks/
+        env:
+          ANSIBLE_ROLES_PATH: ansible/roles
+
+  # ── Semgrep — SAST ─────────────────────────────────────────────────────────
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: >
+          semgrep scan
+          --config=auto
+          --error
+          --exclude='*.tfstate'
+          --exclude='*.tfstate.backup'
+          .
+
+  # ── Trivy — CVE scan image de base Packer ──────────────────────────────────
+  #
+  # Contrainte d'infrastructure : les runners GitHub Actions (Linux) n'ont pas
+  # la virtualisation imbriquée (nested virt / KVM). Packer ne peut donc pas
+  # construire l'image QEMU finale en CI.
+  #
+  # Choix retenu : scanner ubuntu:24.04, l'image de base utilisée par Packer.
+  # Cela couvre les CVE du système de base avant hardening.
+  #
+  # En production avec un runner self-hosted KVM, on scannerait l'image QEMU
+  # finale produite par Packer (packer build → Trivy scan du filesystem extrait).
+  trivy:
+    name: Trivy CVE Scan (base image Packer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy on ubuntu:24.04 (base Packer)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ubuntu:24.04
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+
+  # ── OWASP ZAP — DAST baseline ──────────────────────────────────────────────
+  zap:
+    name: OWASP ZAP DAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start demo app (nginx placeholder)
+        run: |
+          docker run -d --name demo-app -p 8080:80 nginx:alpine
+          sleep 3
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8080'
+          fail_action: false
+          allow_issue_writing: false
+
+      - name: Stop demo app
+        if: always()
+        run: docker stop demo-app || true
+
+  # ── Cosign — signature keyless ─────────────────────────────────────────────
+  #
+  # Signe l'image ubuntu:24.04 taguée avec le SHA du commit pour démontrer
+  # le pattern de signature keyless OIDC. En production, on signerait l'image
+  # finale produite par Packer après le scan Trivy.
+  cosign:
+    name: Cosign Keyless Sign
+    runs-on: ubuntu-latest
+    needs: trivy
+    permissions:
+      contents: read
+      id-token: write   # requis pour la signature keyless OIDC
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Pull et tag image base
+        run: |
+          docker pull ubuntu:24.04
+          docker tag ubuntu:24.04 \
+            ghcr.io/${{ github.repository_owner }}/devsecops-demo:${{ github.sha }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image vers GHCR
+        run: |
+          docker push \
+            ghcr.io/${{ github.repository_owner }}/devsecops-demo:${{ github.sha }}
+
+      - name: Sign image with Cosign (keyless)
+        run: |
+          cosign sign --yes \
+            ghcr.io/${{ github.repository_owner }}/devsecops-demo:${{ github.sha }}
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+
+      - name: Verify signature
+        run: |
+          cosign verify \
+            --certificate-identity-regexp="https://github.com/${{ github.repository }}.*" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            ghcr.io/${{ github.repository_owner }}/devsecops-demo:${{ github.sha }}

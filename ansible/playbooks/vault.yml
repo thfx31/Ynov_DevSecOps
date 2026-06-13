@@ -1,0 +1,25 @@
+---
+# Playbook pour déployer Vault et ses workloads
+# Ordre d'exécution : vault-server d'abord (bootstrap engines + génère AppRole creds)
+# puis workloads (vault-ssh-helper PAM + PostgreSQL sur workload-a)
+
+- name: Deploy Vault server
+  hosts: vault_servers
+  become: true
+  roles:
+    - vault-server
+
+- name: Deploy vault-ssh-helper on workloads
+  hosts: workloads
+  become: true
+  roles:
+    - vault-agent
+
+# Configure le database engine après que PostgreSQL soit prêt sur workload-a
+- name: Configure Vault database engine
+  hosts: vault_servers
+  become: true
+  tasks:
+    - include_role:
+        name: vault-server
+        tasks_from: bootstrap_db.yml

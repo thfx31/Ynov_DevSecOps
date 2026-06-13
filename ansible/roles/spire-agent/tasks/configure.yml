@@ -1,0 +1,76 @@
+---
+- name: Create SPIRE agent directories
+  ansible.builtin.file:
+
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ spire_data_dir }}/agent"
+    - "{{ spire_conf_dir }}/agent"
+    - /tmp/spire-agent/public
+
+# ── Bundle — copié depuis le contrôleur Ansible (fetché depuis le server) ─────
+
+- name: Deploy trust bundle
+  ansible.builtin.copy:
+
+    src: /tmp/spire-bundle.crt
+    dest: "{{ spire_conf_dir }}/agent/bootstrap.crt"
+    mode: "0644"
+
+# ── Join token — généré sur le server via delegate_to ────────────────────────
+
+- name: Generate join token for this agent
+  ansible.builtin.command: >
+    {{ spire_install_dir }}/bin/spire-server token generate
+    -spiffeID spiffe://{{ spire_trust_domain }}/node/{{ inventory_hostname }}
+    -ttl 3600
+    -socketPath {{ spire_server_socket }}
+  delegate_to: spire-server
+  register: join_token_raw
+  changed_when: true
+
+- name: Parse join token
+  ansible.builtin.set_fact:
+
+    spire_join_token: "{{ join_token_raw.stdout | regex_search('Token: (.+)', '\\1') | first }}"
+
+- name: Write join token env file
+  ansible.builtin.copy:
+
+    content: "SPIRE_JOIN_TOKEN={{ spire_join_token }}\n"
+    dest: "{{ spire_conf_dir }}/agent/join-token.env"
+    mode: "0600"
+
+# ── Config et service ─────────────────────────────────────────────────────────
+
+- name: Deploy SPIRE agent config
+  ansible.builtin.template:
+
+    src: agent.conf.j2
+    dest: "{{ spire_conf_dir }}/agent/agent.conf"
+    mode: "0644"
+  notify: restart spire-agent
+
+- name: Deploy SPIRE agent systemd service
+  ansible.builtin.template:
+
+    src: spire-agent.service.j2
+    dest: /etc/systemd/system/spire-agent.service
+    mode: "0644"
+  notify: restart spire-agent
+
+- name: Enable and start SPIRE agent
+  ansible.builtin.systemd:
+
+    name: spire-agent
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for SPIRE agent socket
+  ansible.builtin.wait_for:
+
+    path: "{{ spire_agent_socket }}"
+    timeout: 30

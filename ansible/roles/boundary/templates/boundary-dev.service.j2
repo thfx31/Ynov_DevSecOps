@@ -1,0 +1,18 @@
+[Unit]
+Description=HashiCorp Boundary — dev mode
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={{ boundary_install_dir }}/boundary dev \
+  -api-listen-address=127.0.0.1:9200 \
+  -cluster-listen-address=127.0.0.1:9201 \
+  -proxy-listen-address=127.0.0.1:9202 \
+  -log-level=info
+Restart=on-failure
+RestartSec=5
+# dev mode recrée ses ressources en mémoire au démarrage
+# le bootstrap Ansible recrée les targets après chaque restart
+
+[Install]
+WantedBy=multi-user.target

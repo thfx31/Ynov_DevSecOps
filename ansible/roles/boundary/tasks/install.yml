@@ -1,0 +1,10 @@
+---
+- name: Add HashiCorp repository
+  ansible.builtin.command:
+    cmd: dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo
+    creates: /etc/yum.repos.d/hashicorp.repo
+
+- name: Install boundary
+  ansible.builtin.dnf:
+    name: boundary
+    state: present
