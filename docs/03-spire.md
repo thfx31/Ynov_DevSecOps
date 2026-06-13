@@ -1,4 +1,4 @@
-# Bloc 3 — SPIRE : identité workload X.509
+# SPIRE — Identité workload X.509
 
 ---
 

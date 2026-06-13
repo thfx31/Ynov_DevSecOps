@@ -16,3 +16,9 @@ cluster_addr = "https://10.0.0.10:8201"
 
 default_lease_ttl = "1h"
 max_lease_ttl     = "24h"
+
+telemetry {
+  prometheus_retention_time = "30s"
+  disable_hostname          = true
+  unauthenticated_metrics_access = true
+}

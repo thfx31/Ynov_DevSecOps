@@ -35,6 +35,15 @@
     proto: tcp
     comment: "SPIRE Agent attestation"
 
+- name: Allow SPIRE telemetry port from internal network
+  community.general.ufw:
+
+    rule: allow
+    from_ip: "10.0.0.0/24"
+    to_port: "8088"
+    proto: tcp
+    comment: "SPIRE Prometheus metrics"
+
 - name: Enable and start SPIRE server
   ansible.builtin.systemd:
 

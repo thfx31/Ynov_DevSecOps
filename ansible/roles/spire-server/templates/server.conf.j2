@@ -11,6 +11,13 @@ server {
   ca_ttl           = "{{ spire_ca_ttl }}"
 }
 
+telemetry {
+  Prometheus {
+    host = "0.0.0.0"
+    port = 8088
+  }
+}
+
 plugins {
   DataStore "sql" {
     plugin_data {

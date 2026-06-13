@@ -61,6 +61,15 @@
     mode: "0644"
   notify: restart spire-agent
 
+- name: Allow SPIRE telemetry port from internal network
+  community.general.ufw:
+
+    rule: allow
+    from_ip: "10.0.0.0/24"
+    to_port: "8088"
+    proto: tcp
+    comment: "SPIRE Prometheus metrics"
+
 - name: Enable and start SPIRE agent
   ansible.builtin.systemd:
 
@@ -68,6 +77,9 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Flush handlers (applique restart si config changée)
+  ansible.builtin.meta: flush_handlers
 
 - name: Wait for SPIRE agent socket
   ansible.builtin.wait_for:

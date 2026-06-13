@@ -112,6 +112,21 @@ infra-status: ## État des VMs et connectivité
 	  printf "$$ip: "; ping -c1 -W1 $$ip >/dev/null 2>&1 && echo "ok" || echo "KO"; \
 	done
 
+# ── Observabilité ────────────────────────────────────────────────────────────
+
+.PHONY: obs-up obs-down obs-status
+
+obs-up: ## Démarrer Prometheus + Grafana (Docker Compose)
+	docker compose -f observability/docker-compose.yml up -d
+	@echo "Prometheus : http://localhost:9090"
+	@echo "Grafana    : http://localhost:3000  (admin/admin)"
+
+obs-down: ## Arrêter Prometheus + Grafana
+	docker compose -f observability/docker-compose.yml down
+
+obs-status: ## État des conteneurs d'observabilité
+	docker compose -f observability/docker-compose.yml ps
+
 # ── Boundary ─────────────────────────────────────────────────────────────────
 
 .PHONY: demo-boundary boundary-status boundary-targets

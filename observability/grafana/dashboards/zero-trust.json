@@ -1,0 +1,202 @@
+{
+  "title": "DevSecOps — Zero-Trust Platform",
+  "uid": "devsecops-zero-trust",
+  "schemaVersion": 38,
+  "version": 2,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+
+    { "id": 10, "title": "Vault", "type": "row", "collapsed": false, "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 } },
+
+    {
+      "id": 3,
+      "title": "Vault - Statut",
+      "description": "1 = actif et non scellé. 0 = scellé ou standby.",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 1, "w": 3, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "vault_core_active",
+          "legendFormat": "Actif"
+        }
+      ],
+      "options": { "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "Sealed", "color": "red" }, "1": { "text": "Actif", "color": "green" } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 1,
+      "title": "Vault - Leases actifs",
+      "description": "Credentials dynamiques actifs (DB, SSH OTP). Descend après révocation — visible pendant la démo.",
+      "type": "stat",
+      "gridPos": { "x": 3, "y": 1, "w": 5, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "vault_expire_num_leases",
+          "legendFormat": "Leases"
+        }
+      ],
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Vault - Requêtes/s",
+      "description": "Taux de requêtes traitées par Vault. Spike visible lors des opérations de démo (OTP, DB creds, Transit).",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 1, "w": 16, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(vault_core_handle_request_count[1m])",
+          "legendFormat": "req/s"
+        }
+      ]
+    },
+
+    { "id": 11, "title": "SPIRE", "type": "row", "collapsed": false, "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 } },
+
+    {
+      "id": 4,
+      "title": "SPIRE - Agents attestés",
+      "description": "Agents ayant présenté un join token valide et reçu un SVID de nœud. Doit être 2 (workload-a + workload-b).",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 6, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "spire_server_rpc_agent_v1_agent_attest_agent{status=\"OK\"}",
+          "legendFormat": "Agents"
+        }
+      ],
+      "options": { "colorMode": "value", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "green", "value": 2 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "SPIRE - Entries enregistrées",
+      "description": "Registration entries créées (workload-a et workload-b). Toute entrée manquante = workload sans identité.",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 6, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "spire_server_datastore_registration_entry_create{status=\"OK\"}",
+          "legendFormat": "Entries"
+        }
+      ],
+      "options": { "colorMode": "value" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "green", "value": 2 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "SPIRE - Renouvellements auto",
+      "description": "Renouvellements d'identité d'agents sans intervention humaine (TTL 5 min → renouvellement toutes ~4 min). Continuous verification.",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 6, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "spire_server_rpc_agent_v1_agent_renew_agent{status=\"OK\"}",
+          "legendFormat": "Renouvellements"
+        }
+      ],
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "yellow", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "SPIRE - SVIDs signés (rate)",
+      "description": "Taux de certificats X.509 émis par la CA SPIRE. Spike au démarrage des agents et à chaque renouvellement (~4 min).",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 4 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(spire_server_server_ca_sign_x509_svid[5m])",
+          "legendFormat": "SVIDs/s"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "title": "Vault - Évolution des leases (démo révocation)",
+      "description": "Pendant la démo : vault read database/creds/app-role → lease monte. vault lease revoke → lease descend immédiatement.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 11, "w": 24, "h": 7 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "vault_expire_num_leases",
+          "legendFormat": "Leases actifs"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 20 },
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      }
+    }
+
+  ]
+}

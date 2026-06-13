@@ -46,6 +46,9 @@
     state: started
     daemon_reload: true
 
+- name: Flush handlers (applique restart si config changée avant bootstrap)
+  ansible.builtin.meta: flush_handlers
+
 - name: Wait for Vault to be ready
   uri:
     url: "{{ vault_addr }}/v1/sys/health"

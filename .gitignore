@@ -16,6 +16,9 @@ packer/output/
 id_rsa
 id_ed25519
 
+# Observability secrets
+observability/prometheus/.vault-token
+
 # IDE
 *.swp
 .vscode/

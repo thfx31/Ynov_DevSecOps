@@ -1,4 +1,4 @@
-# Bloc 4 — Boundary : accès humain zero-trust
+# Boundary — Accès humain zero-trust
 
 ---
 

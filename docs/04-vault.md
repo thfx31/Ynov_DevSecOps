@@ -1,4 +1,4 @@
-# Bloc 2 — Vault : SSH OTP + DB dynamic secrets + Transit + AppRole
+# Vault — SSH OTP · DB dynamic secrets · Transit · AppRole
 
 ## Résultat attendu
 

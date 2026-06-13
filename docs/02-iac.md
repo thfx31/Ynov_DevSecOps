@@ -1,4 +1,4 @@
-# Bloc 1 — IaC : Packer + Terraform + Ansible
+# IaC — Packer + Terraform + Ansible
 
 ## Résultat
 
