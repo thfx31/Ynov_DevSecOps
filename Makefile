@@ -187,7 +187,7 @@ boundary-status: ## Etat du service Boundary et connectivité API
 
 boundary-targets: ## Lister les targets Boundary et leurs IDs
 	@BOUNDARY_TOKEN=$(call boundary-token) boundary targets list \
-	  -scope-id=$(BOUNDARY_PROJECT) -format=json \
+	  -scope-id=$(BOUNDARY_PROJECT) -token env://BOUNDARY_TOKEN -format=json \
 	  | jq -r '.items[] | "  \(.name)\t\(.id)\t\(.address)"'
 
 # ── Démo soutenance ──────────────────────────────────────────────────────────
@@ -244,13 +244,14 @@ demo-boundary: ## Connexion SSH via Boundary à workload-a (sans IP directe)
 	@echo "=== Boundary - Accès zero-trust ==="
 	@echo "Targets disponibles :"
 	@BOUNDARY_TOKEN=$(call boundary-token) boundary targets list \
-	  -scope-id=$(BOUNDARY_PROJECT) -format=json \
+	  -scope-id=$(BOUNDARY_PROJECT) -token env://BOUNDARY_TOKEN -format=json \
 	  | jq -r '.items[] | "  \(.name) → \(.id)"'
 	@echo ""
 	@echo "→ Connexion à workload-a via Boundary (l'IP 10.0.0.20 n'est jamais exposée)..."
 	@BOUNDARY_TOKEN=$(call boundary-token) boundary connect ssh \
 	  -target-name=workload-a \
 	  -target-scope-id=$(BOUNDARY_PROJECT) \
+	  -token env://BOUNDARY_TOKEN \
 	  -- -l ubuntu -i $(SSH_KEY)
 
 # ── Aide ─────────────────────────────────────────────────────────────────────

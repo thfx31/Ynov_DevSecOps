@@ -76,10 +76,10 @@ vault status | grep -E "Initialized|Sealed|HA Enabled"
 ### 2.2 Secrets engines montés
 
 ```bash
-vault secrets list | grep -E "ssh|database|transit|kv"
+vault secrets list | grep -E "ssh|database|transit"
 ```
 
-✅ `ssh/`, `database/`, `transit/`, `kv/` présents
+✅ `ssh/`, `database/`, `transit/` présents
 
 ### 2.3 AppRole auth
 
@@ -226,10 +226,10 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
 
 ```bash
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
-  'sudo /opt/spire/bin/spire-agent api fetch x509 -socketPath /tmp/spire-agent/public/api.sock 2>&1 | head -5'
+  '/opt/spire/bin/spire-agent api fetch x509 -socketPath /tmp/spire-agent/public/api.sock 2>&1 | head -5'
 ```
 
-✅ `SVID is valid` avec `spiffe://example.org/app-a`
+✅ `Received 1 svid` avec `spiffe://example.org/workload/app-a`
 
 ### 3.6 Métriques SPIRE accessibles
 
@@ -256,16 +256,13 @@ sudo systemctl is-active boundary-dev
 ### 4.2 Targets disponibles
 
 ```bash
-boundary targets list \
-  -auth-method-id=ampw_1234567890 \
-  -scope-id=p_1234567890 \
-  -token env://BOUNDARY_TOKEN 2>/dev/null || \
-boundary authenticate password \
+export BOUNDARY_TOKEN=$(BOUNDARY_PASSWORD=password boundary authenticate password \
   -auth-method-id=ampw_1234567890 \
   -login-name=admin \
-  -password=password \
-  -format=json | jq -r .item.attributes.token | \
-  BOUNDARY_TOKEN=$(cat) boundary targets list -scope-id=p_1234567890
+  -password=env://BOUNDARY_PASSWORD \
+  -format=json | jq -r .item.attributes.token)
+
+boundary targets list -scope-id=p_1234567890 -token env://BOUNDARY_TOKEN
 ```
 
 ✅ 2 targets : `workload-a` et `workload-b`
@@ -273,18 +270,11 @@ boundary authenticate password \
 ### 4.3 Connexion SSH via Boundary
 
 ```bash
-TOKEN=$(boundary authenticate password \
-  -auth-method-id=ampw_1234567890 \
-  -login-name=admin \
-  -password=password \
-  -format=json | jq -r .item.attributes.token)
-
-TARGET_ID=$(BOUNDARY_TOKEN=$TOKEN boundary targets list \
-  -scope-id=p_1234567890 -format=json | jq -r '.items[] | select(.name=="workload-a") | .id')
-
-BOUNDARY_TOKEN=$TOKEN boundary connect ssh \
-  -target-id=$TARGET_ID \
-  -- -i ~/.ssh/devsecops -o StrictHostKeyChecking=no
+boundary connect ssh \
+  -target-name=workload-a \
+  -target-scope-id=p_1234567890 \
+  -token env://BOUNDARY_TOKEN \
+  -- -l ubuntu -i ~/.ssh/devsecops
 ```
 
 ✅ Connexion SSH établie via le tunnel Boundary
