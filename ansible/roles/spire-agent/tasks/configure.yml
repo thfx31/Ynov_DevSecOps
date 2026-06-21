@@ -1,7 +1,6 @@
 ---
 - name: Create SPIRE agent directories
   ansible.builtin.file:
-
     path: "{{ item }}"
     state: directory
     mode: "0755"
@@ -14,7 +13,6 @@
 
 - name: Deploy trust bundle
   ansible.builtin.copy:
-
     src: /tmp/spire-bundle.crt
     dest: "{{ spire_conf_dir }}/agent/bootstrap.crt"
     mode: "0644"
@@ -33,12 +31,10 @@
 
 - name: Parse join token
   ansible.builtin.set_fact:
-
     spire_join_token: "{{ join_token_raw.stdout | regex_search('Token: (.+)', '\\1') | first }}"
 
 - name: Write join token env file
   ansible.builtin.copy:
-
     content: "SPIRE_JOIN_TOKEN={{ spire_join_token }}\n"
     dest: "{{ spire_conf_dir }}/agent/join-token.env"
     mode: "0600"
@@ -47,7 +43,6 @@
 
 - name: Deploy SPIRE agent config
   ansible.builtin.template:
-
     src: agent.conf.j2
     dest: "{{ spire_conf_dir }}/agent/agent.conf"
     mode: "0644"
@@ -55,7 +50,6 @@
 
 - name: Deploy SPIRE agent systemd service
   ansible.builtin.template:
-
     src: spire-agent.service.j2
     dest: /etc/systemd/system/spire-agent.service
     mode: "0644"
@@ -63,7 +57,6 @@
 
 - name: Allow SPIRE telemetry port from internal network
   community.general.ufw:
-
     rule: allow
     from_ip: "10.0.0.0/24"
     to_port: "8088"
@@ -81,6 +74,5 @@
 
 - name: Wait for SPIRE agent socket
   ansible.builtin.wait_for:
-
     path: "{{ spire_agent_socket }}"
     timeout: 30

@@ -1,20 +1,17 @@
 ---
 - name: Install prerequisites
   ansible.builtin.apt:
-
     name: [curl, tar, jq]
     state: present
     update_cache: true
 
 - name: Check if SPIRE server is already installed
   ansible.builtin.stat:
-
     path: "{{ spire_install_dir }}/bin/spire-server"
   register: spire_bin
 
 - name: Download SPIRE tarball
   ansible.builtin.get_url:
-
     url: "https://github.com/spiffe/spire/releases/download/v{{ spire_version }}/spire-{{ spire_version }}-linux-amd64-musl.tar.gz"
     dest: /tmp/spire.tar.gz
     mode: "0644"
@@ -22,7 +19,6 @@
 
 - name: Create SPIRE install directories
   ansible.builtin.file:
-
     path: "{{ item }}"
     state: directory
     mode: "0755"
@@ -32,7 +28,6 @@
 
 - name: Extract SPIRE
   ansible.builtin.unarchive:
-
     src: /tmp/spire.tar.gz
     dest: /tmp/
     remote_src: true
@@ -40,7 +35,6 @@
 
 - name: Install SPIRE binaries
   ansible.builtin.copy:
-
     src: "/tmp/spire-{{ spire_version }}/bin/{{ item }}"
     dest: "{{ spire_install_dir }}/bin/{{ item }}"
     mode: "0755"

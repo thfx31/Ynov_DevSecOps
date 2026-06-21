@@ -1,7 +1,6 @@
 ---
 - name: Create SPIRE directories
   ansible.builtin.file:
-
     path: "{{ item }}"
     state: directory
     mode: "0755"
@@ -12,7 +11,6 @@
 
 - name: Deploy SPIRE server config
   ansible.builtin.template:
-
     src: server.conf.j2
     dest: "{{ spire_conf_dir }}/server/server.conf"
     mode: "0644"
@@ -20,7 +18,6 @@
 
 - name: Deploy SPIRE server systemd service
   ansible.builtin.template:
-
     src: spire-server.service.j2
     dest: /etc/systemd/system/spire-server.service
     mode: "0644"
@@ -28,7 +25,6 @@
 
 - name: Allow SPIRE port from workloads
   community.general.ufw:
-
     rule: allow
     from_ip: "10.0.0.0/24"
     to_port: "{{ spire_server_port }}"
@@ -37,7 +33,6 @@
 
 - name: Allow SPIRE telemetry port from internal network
   community.general.ufw:
-
     rule: allow
     from_ip: "10.0.0.0/24"
     to_port: "8088"
@@ -46,7 +41,6 @@
 
 - name: Enable and start SPIRE server
   ansible.builtin.systemd:
-
     name: spire-server
     enabled: true
     state: started
@@ -57,6 +51,5 @@
 
 - name: Wait for SPIRE server socket
   ansible.builtin.wait_for:
-
     path: "{{ spire_server_socket }}"
     timeout: 30

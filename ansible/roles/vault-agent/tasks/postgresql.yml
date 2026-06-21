@@ -2,14 +2,12 @@
 # Uniquement sur workload-a
 - name: Install PostgreSQL
   ansible.builtin.apt:
-
     name: [postgresql, postgresql-contrib, python3-psycopg2]
     state: present
     update_cache: true
 
 - name: Ensure PostgreSQL is started
   ansible.builtin.systemd:
-
     name: postgresql
     enabled: true
     state: started
@@ -53,7 +51,6 @@
 # PostgreSQL écoute sur 0.0.0.0 pour que Vault puisse se connecter depuis 10.0.0.10
 - name: Configure PostgreSQL to listen on all interfaces
   ansible.builtin.lineinfile:
-
     path: /etc/postgresql/{{ postgresql_version | default('16') }}/main/postgresql.conf
     regexp: "^#?listen_addresses"
     line: "listen_addresses = '*'"
@@ -61,7 +58,6 @@
 
 - name: Allow PostgreSQL port from vault-server
   community.general.ufw:
-
     rule: allow
     from_ip: "10.0.0.10"
     to_port: "5432"

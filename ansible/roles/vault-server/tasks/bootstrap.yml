@@ -9,7 +9,6 @@
 
 - name: Parse Vault status
   ansible.builtin.set_fact:
-
     vault_status: "{{ vault_status_raw.stdout | from_json }}"
 
 # ── Init ─────────────────────────────────────────────────────────────────────
@@ -28,7 +27,6 @@
 
 - name: Save init output to file
   ansible.builtin.copy:
-
     content: "{{ vault_init_raw.stdout }}"
     dest: "{{ vault_init_file }}"
     mode: "0400"
@@ -43,7 +41,6 @@
 
 - name: Parse init data
   ansible.builtin.set_fact:
-
     vault_init_data: "{{ vault_init_slurp.content | b64decode | from_json }}"
 
 - name: Unseal Vault if sealed
@@ -55,7 +52,6 @@
 
 - name: Set root token fact
   ansible.builtin.set_fact:
-
     vault_root_token: "{{ vault_init_data.root_token }}"
 
 # ── Audit log ─────────────────────────────────────────────────────────────────
@@ -239,7 +235,6 @@
 
 - name: Save AppRole credentials for workloads
   ansible.builtin.copy:
-
     content: |
       # Vault AppRole credentials - injectés par Ansible sur les workloads
       # NE PAS committer ce fichier
@@ -253,7 +248,6 @@
 
 - name: Show Vault bootstrap summary
   ansible.builtin.debug:
-
     msg:
       - "=== Vault bootstrap terminé ==="
       - "Unseal key et root token : {{ vault_init_file }}"

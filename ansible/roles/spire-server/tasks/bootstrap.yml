@@ -10,14 +10,12 @@
 
 - name: Save bundle on server
   ansible.builtin.copy:
-
     content: "{{ spire_bundle.stdout }}"
     dest: "{{ spire_conf_dir }}/server/bundle.crt"
     mode: "0644"
 
 - name: Fetch bundle to Ansible controller
   ansible.builtin.fetch:
-
     src: "{{ spire_conf_dir }}/server/bundle.crt"
     dest: /tmp/spire-bundle.crt
     flat: true

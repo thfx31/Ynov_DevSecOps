@@ -2,7 +2,6 @@
 # Permettre l'auth par challenge-response (nécessaire pour OTP)
 - name: Enable KbdInteractiveAuthentication in sshd_config
   ansible.builtin.lineinfile:
-
     path: /etc/ssh/sshd_config
     regexp: '^#?KbdInteractiveAuthentication'
     line: 'KbdInteractiveAuthentication yes'
@@ -11,7 +10,6 @@
 
 - name: Ensure UsePAM is enabled
   ansible.builtin.lineinfile:
-
     path: /etc/ssh/sshd_config
     regexp: '^#?UsePAM'
     line: 'UsePAM yes'
@@ -21,7 +19,6 @@
 # Remplace @include common-auth par pam_exec (vault-ssh-helper) + pam_unix fallback
 - name: Configure PAM sshd for vault-ssh-helper
   ansible.builtin.blockinfile:
-
     path: /etc/pam.d/sshd
     insertbefore: '^@include common-auth'
     marker: "# {mark} VAULT-SSH-HELPER"
@@ -37,7 +34,6 @@
 
 - name: Create vault-ssh log file
   ansible.builtin.file:
-
     path: "{{ vault_ssh_helper_log }}"
     state: touch
     mode: "0640"
