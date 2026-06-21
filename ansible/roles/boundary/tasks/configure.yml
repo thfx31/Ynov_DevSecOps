@@ -1,5 +1,6 @@
 ---
 - name: Deploy boundary systemd service
+  become: true
   ansible.builtin.template:
     src: boundary-dev.service.j2
     dest: /etc/systemd/system/boundary-dev.service
@@ -7,6 +8,7 @@
   notify: Restart boundary-dev
 
 - name: Enable and start boundary dev
+  become: true
   ansible.builtin.systemd:
     name: boundary-dev
     enabled: true

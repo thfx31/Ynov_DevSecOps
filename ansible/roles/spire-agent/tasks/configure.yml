@@ -70,15 +70,13 @@
     proto: tcp
     comment: "SPIRE Prometheus metrics"
 
-- name: Enable and start SPIRE agent
+- name: Enable SPIRE agent service
   ansible.builtin.systemd:
-
     name: spire-agent
     enabled: true
-    state: started
     daemon_reload: true
 
-- name: Flush handlers (applique restart si config changée)
+- name: Flush handlers (démarre ou redémarre l'agent)
   ansible.builtin.meta: flush_handlers
 
 - name: Wait for SPIRE agent socket

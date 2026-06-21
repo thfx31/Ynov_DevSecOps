@@ -140,14 +140,16 @@ cd ansible
 ansible all -m ping
 
 # Déploiement complet (ordre : Vault → SPIRE → Boundary)
-ansible-playbook playbooks/site.yml -v
+# -K demande le mot de passe sudo pour Boundary (localhost)
+ansible-playbook playbooks/site.yml -v -K
 
 # Rejouer un seul service
 ansible-playbook playbooks/vault.yml -v
 ansible-playbook playbooks/spire.yml -v
-ansible-playbook playbooks/boundary.yml -v
-
+ansible-playbook playbooks/boundary.yml -v -K
 ```
+
+**`-K` (--ask-become-pass)** : nécessaire car Boundary tourne sur le laptop (`connection: local`) et a besoin de sudo pour dnf et systemd. Les VMs distantes ont NOPASSWD via cloud-init, le mot de passe est ignoré pour elles.
 
 **Ordre important :** Vault doit tourner avant SPIRE (les agents récupèrent des tokens via Vault). Boundary est indépendant.
 

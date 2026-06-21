@@ -1,5 +1,6 @@
 ---
 - name: Restart boundary-dev
+  become: true
   ansible.builtin.systemd:
     name: boundary-dev
     state: restarted
