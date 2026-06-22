@@ -3,8 +3,8 @@ CONTEXT.md
 # Terraform
 terraform/.terraform/
 terraform/.terraform.lock.hcl
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
+*.tfstate
+*.tfstate.backup
 terraform/terraform.tfvars
 *.tfvars
 

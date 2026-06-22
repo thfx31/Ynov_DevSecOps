@@ -4,13 +4,11 @@ global:
 
 scrape_configs:
 
-  # Vault - token read-only dédié (prometheus-metrics policy, TTL 1 an)
-  # Token généré par Ansible dans observability/prometheus/.vault-token (gitignored)
+  # Vault - unauthenticated_metrics_access activé dans vault.hcl
   - job_name: 'vault'
     metrics_path: /v1/sys/metrics
     params:
       format: ['prometheus']
-    bearer_token_file: /etc/prometheus/.vault-token
     static_configs:
       - targets: ['10.0.0.10:8200']
 
