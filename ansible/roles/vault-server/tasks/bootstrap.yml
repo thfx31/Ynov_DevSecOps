@@ -191,7 +191,7 @@
   register: prometheus_token_raw
   changed_when: true
 
-- name: Save Prometheus token on le contrôleur Ansible
+- name: Save Prometheus token for scraping Vault metrics
   ansible.builtin.copy:
     content: "{{ (prometheus_token_raw.stdout | from_json).auth.client_token }}"
     dest: "{{ playbook_dir }}/../../observability/prometheus/.vault-token"

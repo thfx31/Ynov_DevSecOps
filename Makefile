@@ -142,7 +142,10 @@ infra-status: ## Etat des VMs et connectivité
 
 # ── Opérations courantes ────────────────────────────────────────────────────
 
-.PHONY: vault-unseal vault-logs spire-status boundary-status boundary-targets
+.PHONY: vault-token vault-unseal vault-logs spire-status boundary-status boundary-targets
+
+vault-token: ## Afficher le root token Vault
+	@ssh -i $(SSH_KEY) $(VAULT_SERVER) 'sudo cat /root/vault-init.json' | jq -r .root_token
 
 vault-unseal: ## Unseal Vault après un reboot
 	$(eval UNSEAL_KEY := $(shell ssh -i $(SSH_KEY) $(VAULT_SERVER) \
@@ -192,7 +195,7 @@ boundary-targets: ## Lister les targets Boundary et leurs IDs
 
 # ── Démo soutenance ──────────────────────────────────────────────────────────
 
-.PHONY: demo-otp demo-db demo-transit demo-status demo-boundary
+.PHONY: demo-otp demo-db demo-transit demo-spire demo-status demo-boundary
 
 demo-otp: ## Génère un OTP SSH pour workload-a
 	@echo ""
@@ -204,15 +207,33 @@ demo-otp: ## Génère un OTP SSH pour workload-a
 	@echo "→ ssh -o PubkeyAuthentication=no -o PreferredAuthentications=keyboard-interactive $(WORKLOAD_A)"
 	@echo "→ Rejoue le même OTP → Permission denied"
 
-demo-db: ## Génère des credentials PostgreSQL dynamiques
+demo-db: ## Génère des credentials PostgreSQL dynamiques + commandes de vérification
 	@echo ""
 	@echo "=== Vault DB Dynamic Secrets ==="
 	@echo "Credentials éphémères PostgreSQL (TTL 1h)"
 	@echo ""
-	@VAULT_TOKEN=$(call vault-token) vault read database/creds/app-role
-	@echo ""
-	@echo "→ Ces credentials n'existent pas dans un fichier de config."
-	@echo "→ Vault les révoque automatiquement à expiration."
+	@TOKEN=$(call vault-token); \
+	 CREDS=$$(VAULT_TOKEN=$$TOKEN vault read -format=json database/creds/app-role); \
+	 USER=$$(echo "$$CREDS" | jq -r .data.username); \
+	 PASS=$$(echo "$$CREDS" | jq -r .data.password); \
+	 LEASE=$$(echo "$$CREDS" | jq -r .lease_id); \
+	 echo "Username : $$USER"; \
+	 echo "Password : $$PASS"; \
+	 echo "Lease ID : $$LEASE"; \
+	 echo ""; \
+	 echo "── Vérification ──"; \
+	 echo "→ Connexion PostgreSQL avec les credentials dynamiques :"; \
+	 echo "  ssh -i $(SSH_KEY) $(WORKLOAD_A) \"PGPASSWORD=$$PASS psql -h 127.0.0.1 -U $$USER -d appdb -c 'SELECT current_user, current_database(), now();'\""; \
+	 echo ""; \
+	 echo "→ Lister les leases actifs :"; \
+	 echo "  VAULT_TOKEN=$$TOKEN vault list sys/leases/lookup/database/creds/app-role"; \
+	 echo ""; \
+	 echo "→ Révoquer le lease (le user PostgreSQL disparaît) :"; \
+	 echo "  VAULT_TOKEN=$$TOKEN vault lease revoke $$LEASE"; \
+	 echo ""; \
+	 echo "→ Re-tenter la connexion après révocation :"; \
+	 echo "  ssh -i $(SSH_KEY) $(WORKLOAD_A) \"PGPASSWORD=$$PASS psql -h 127.0.0.1 -U $$USER -d appdb -c 'SELECT 1;'\""; \
+	 echo "  → FATAL: password authentication failed"
 
 demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	@echo ""
@@ -229,6 +250,53 @@ demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	 echo "Déchiffré  : $$PLAIN"; \
 	 echo ""; \
 	 echo "→ La clé ne quitte jamais Vault. Le dump DB est illisible sans accès Vault."
+
+demo-spire: ## Démo SPIRE : identité zero-trust sans secret statique
+	@echo ""
+	@echo "=== SPIRE - Identité Zero-Trust (SPIFFE) ==="
+	@echo "Problème : comment un service prouve son identité sans mot de passe ni clé API ?"
+	@echo "Réponse  : SPIRE atteste le noeud et délivre un certificat X.509 à courte durée de vie."
+	@echo ""
+	@echo "── 1. Déclaration : qui a droit à quelle identité ──"
+	@echo "   (Registration entries sur le SPIRE server)"
+	@echo ""
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
+	  'sudo /opt/spire/bin/spire-server entry show \
+	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
+	  | grep -E "Entry ID|SPIFFE ID|Selector|Parent ID" | sed 's/^/  /'
+	@echo ""
+	@echo "── 2. Attestation : quels agents ont prouvé leur identité ──"
+	@echo "   (Le SPIRE server vérifie le noeud avant de délivrer des SVIDs)"
+	@echo ""
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
+	  'sudo /opt/spire/bin/spire-server agent list \
+	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
+	  | grep -E "SPIFFE ID|Attestation|Serial" | sed 's/^/  /'
+	@echo ""
+	@echo "── 3. Preuve : le certificat SVID de workload-a ──"
+	@echo "   (Certificat X.509 délivré automatiquement, renouvelé avant expiration)"
+	@echo ""
+	@ssh -i $(SSH_KEY) $(WORKLOAD_A) \
+	  'mkdir -p /tmp/svid \
+	   && /opt/spire/bin/spire-agent api fetch x509 \
+	   -socketPath /tmp/spire-agent/public/api.sock -write /tmp/svid 2>/dev/null \
+	   && openssl x509 -in /tmp/svid/svid.0.pem -noout -subject -issuer -dates \
+	   && rm -rf /tmp/svid' \
+	  | sed 's/^/  /'
+	@echo ""
+	@echo "── 4. Confiance : la CA racine SPIRE (trust bundle) ──"
+	@echo "   (Tous les workloads qui partagent ce bundle peuvent faire du mTLS)"
+	@echo ""
+	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
+	  'sudo /opt/spire/bin/spire-server bundle show \
+	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
+	  | openssl x509 -noout -subject -dates 2>/dev/null | sed 's/^/  /'
+	@echo ""
+	@echo "── Résumé ──"
+	@echo "→ Aucun secret dans les fichiers de config : l'identité vient du noeud, pas d'un mot de passe."
+	@echo "→ Certificats à durée de vie courte (~1h) : un SVID volé expire vite."
+	@echo "→ Renouvellement automatique : pas d'intervention humaine, pas de certificat oublié."
+	@echo ""
 
 demo-status: ## Etat général de la plateforme (Vault + SPIRE + Boundary)
 	@echo ""

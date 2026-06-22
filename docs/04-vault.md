@@ -45,10 +45,9 @@ ansible-playbook playbooks/vault.yml -v
 Le playbook fait, dans l'ordre :
 
 1. **vault-server** :
-   - Install Vault via apt HashiCorp
+   - Install Vault via repo HashiCorp
    - Config Raft + TLS désactivé (lab)
    - `vault operator init -key-shares=1 -key-threshold=1` → `/root/vault-init.json`
-   - Unseal automatique
    - Active : audit log, approle, ssh, database, transit
    - Crée les rôles AppRole pour workload-a et workload-b
 
@@ -248,8 +247,8 @@ vault write transit/decrypt/app-key \
 vault write ssh/creds/otp-role ip=10.0.0.20
 # → key: b4e9-3fa1-c721-8d02
 
-ssh ubuntu@10.0.0.20   # password = OTP → OK
-ssh ubuntu@10.0.0.20   # même OTP → Permission denied ← MOMENT CLE
+ssh -o PubkeyAuthentication=no ubuntu@10.0.0.20   # password = OTP → OK
+ssh -o PubkeyAuthentication=no ubuntu@10.0.0.20   # même OTP → Permission denied ← MOMENT CLE
 
 # Ce credential n'existe plus, ni dans Vault, ni sur la VM. Il est consommé
 ```
@@ -268,7 +267,7 @@ psql -U v-root-app-XxXx -d appdb -h localhost
 vault lease revoke database/creds/app-role/<lease_id>
 # → user supprimé de PostgreSQL
 
-# Aucun mot de passe stocké nulle part. Vault génère, Vault révoque
+# Aucun mot de passe stocké nulle part. Vault génère et révoque
 ```
 
 ### Démo 3 - Transit (chiffrement as a service)
@@ -286,8 +285,6 @@ vault write -field=plaintext transit/decrypt/app-key \
 
 # La clé ne quitte jamais Vault. Même un dump de la base ne révèle rien sans accès Vault.
 ```
-
-**Phrase jury :** "La base de données ne contient que du chiffré. Sans Vault, un attaquant qui exfiltre la base ne voit que `vault:v1:...`. La clé de déchiffrement n'existe nulle part ailleurs."
 
 ---
 
@@ -312,9 +309,6 @@ vault secrets list
 
 vault auth list
 # Liste les méthodes d'authentification (approle/, token/)
-
-vault audit list
-# Vérifie que l'audit log est activé (file://)
 ```
 
 ### SSH OTP

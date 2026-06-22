@@ -1,5 +1,5 @@
 ---
-# Configuré en Play 3, après que PostgreSQL soit installé sur workload-a
+# Après que PostgreSQL soit installé sur workload-a
 
 - name: Read Vault init file
   ansible.builtin.slurp:
