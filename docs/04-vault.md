@@ -186,21 +186,6 @@ n'est qu'un intermédiaire.
 
 ---
 
-### Test 4 - vault-ssh-helper (vérification config)
-
-**Ce que c'est :** validation que vault-ssh-helper est correctement installé
-sur les workloads et peut joindre Vault. Utile en début de démo pour montrer
-que l'intégration PAM est en place.
-
-```bash
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
-  '/usr/local/bin/vault-ssh-helper -verify-only -dev \
-   -config=/etc/vault-ssh-helper.d/config.hcl'
-# → [INFO] vault-ssh-helper verification successful
-```
-
----
-
 ## Commandes de référence
 
 > Toutes les commandes `vault` requièrent `VAULT_ADDR` et `VAULT_TOKEN` dans l'environnement. 
@@ -313,7 +298,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.10 \
 
 ## Troubleshooting
 
-| Piège | Solution |
+| Erreur | Solution |
 |---|---|
 | Vault sealed au redémarrage | Unseal scripté dans bootstrap.yml - rejouer le playbook |
 | `@include common-auth` commenté casse d'autres auth | `pam_unix optional` en fallback conserve l'auth clé SSH |

@@ -6,7 +6,7 @@
 
 | VM | IP | RAM | Rôle |
 |---|---|---|---|
-| vault-server | 10.0.0.10 | 2 Go | Vault, PKI |
+| vault-server | 10.0.0.10 | 2 Go | Vault |
 | spire-server | 10.0.0.11 | 1 Go | SPIRE Server |
 | workload-a | 10.0.0.20 | 1 Go | SPIRE Agent, app API, PostgreSQL |
 | workload-b | 10.0.0.21 | 1 Go | SPIRE Agent, app client |
@@ -87,7 +87,7 @@ Les IPs fixes sont assignées via cloud-init : `main.tf` passe l'IP de chaque VM
 
 ## Ansible - Configuration des services
 
-Ansible configure les services sur les VMs après `terraform apply`. Le hardening CIS est déjà baked dans l'image Packer — Ansible ne s'occupe que des services applicatifs.
+Ansible configure les services sur les VMs après `terraform apply`.
 
 **Prérequis :** venv activé (`source ~/.virtualenvs/ansible/bin/activate`)
 
@@ -99,10 +99,12 @@ ansible/
 │   └── hosts.yml          # 4 hôtes en 3 groupes (vault_servers, spire_servers, workloads)
 ├── playbooks/
 │   ├── site.yml            # déploiement complet from scratch
+│   ├── common.yml          # baseline commune (NTP, timezone)
 │   ├── vault.yml           # Vault seul (install + configure + bootstrap)
 │   ├── spire.yml           # SPIRE server + agents
 │   └── boundary.yml        # Boundary dev mode sur le laptop
 └── roles/
+    ├── common/             # chrony NTP, timezone Europe/Paris (toutes les VMs)
     ├── vault-server/       # install, configure (vault.hcl), bootstrap (init/unseal/secrets engines)
     ├── vault-agent/        # vault-ssh-helper, PAM, PostgreSQL
     ├── spire-server/       # install, configure (server.conf), bootstrap (registration entries)
@@ -139,9 +141,12 @@ cd ansible
 # Vérifier la connectivité avant de déployer
 ansible all -m ping
 
-# Déploiement complet (ordre : Vault → SPIRE → Boundary)
+# Déploiement complet (ordre : Common → Vault → SPIRE → Boundary)
 # -K demande le mot de passe sudo pour Boundary (localhost)
 ansible-playbook playbooks/site.yml -v -K
+
+# Baseline seule (NTP, timezone)
+ansible-playbook playbooks/common.yml -v
 
 # Rejouer un seul service
 ansible-playbook playbooks/vault.yml -v

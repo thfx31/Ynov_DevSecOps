@@ -64,27 +64,6 @@ make obs-status  # état des conteneurs
 
 ---
 
-### Graphe pleine largeur
-
-| Panel | Usage démo |
-|---|---|
-| **Vault - Evolution des leases** | Lancer `make demo-db` pour générer un lease → la courbe monte. Révoquer avec `vault lease revoke <id>` → descend immédiatement. Illustre la gestion du cycle de vie des secrets. |
-
-## Commandes utiles pendant la démo
-
-```bash
-# Générer de l'activité Vault (fait monter leases + requêtes)
-make demo-db        # credentials DB dynamiques
-make demo-otp       # OTP SSH
-make demo-transit   # chiffrement as a service
-
-# Voir les targets Prometheus
-open http://localhost:9090/targets
-
-# Forcer un spike SPIRE (redémarre un agent → reattestation visible)
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl restart spire-agent'
-```
-
 ## Tokens et accès
 
 | Secret | Emplacement | Usage |

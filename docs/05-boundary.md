@@ -189,7 +189,7 @@ boundary sessions cancel \
 
 ## Demo
 
-### Demo 1 - Connexion sans connaître l'IP (90 secondes)
+### Demo 1 - Connexion sans connaître l'IP
 
 **Ce qu'on démontre :** l'admin n'a pas l'IP du serveur - il a une target
 nommée. Boundary intermédie et audite.
@@ -216,7 +216,7 @@ Je ne connais pas l'IP de ce serveur. Mon accès est une
 session Boundary - révocable instantanément depuis le contrôleur, sans
 modifier quoi que ce soit sur le serveur.
 
-### Démo 2 - Révocation de session (30 secondes)
+### Démo 2 - Révocation de session
 
 ```bash
 # Récupérer l'ID de la session active
@@ -315,7 +315,7 @@ ss -tlnp | grep -E '9200|9201|9202'
 
 ## Troubleshooting
 
-| Piège | Cause | Solution |
+| Erreur | Cause | Solution |
 |---|---|---|
 | Targets disparues après reboot | Dev mode SQLite en mémoire - données perdues | Relancer `ansible-playbook boundary.yml -K` |
 | `Error opening "pass" keyring` | Pas de keyring système en terminal | Ajouter `-keyring-type=none` + exporter `BOUNDARY_TOKEN` |

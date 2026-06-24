@@ -93,7 +93,7 @@ source ~/.virtualenvs/ansible/bin/activate
 
 ## 6. Clé SSH dédiée au projet
 
-Génère une clé ed25519 dédiée (ne pas réutiliser une clé personnelle) :
+Génère une clé ed25519 dédiée :
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/devsecops -N ""

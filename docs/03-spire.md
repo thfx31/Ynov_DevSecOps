@@ -57,7 +57,7 @@ spire-server (10.0.0.11)                workload-a (10.0.0.20)
 │  SQLite datastore       │             │  Obtient son SVID agent    │
 │  Registration entries   │             │  Expose Workload API       │
 │                         │             │  (socket Unix)             │
-│  spiffe://devsecops.lab/  │             │                            │
+│  spiffe://devsecops.lab/│             │                            │
 │    node/workload-a  ────┼─────────────►  /tmp/spire-agent/         │
 │    workload/app-a       │             │    public/api.sock         │
 └─────────────────────────┘             │         │                  │
@@ -146,12 +146,6 @@ Play 2 - SPIRE Agents (workload-a, workload-b) :
 
 ## Démo
 
-> Fil conducteur : il n'y a pas un moment "avant/après" comme l'OTP Vault. C'est **3 preuves successives** : une identité existe → elle a été déduite, pas déclarée → elle ne reste jamais statique.
-
-### Pitch oral (30 secondes, avant de toucher au terminal)
-
-> "SPIRE donne une identité cryptographique à chaque process, sans aucun secret partagé. Cette identité est déduite de ce que le process **est** réellement — son UID — et elle se renouvelle automatiquement toutes les quelques minutes. Je vais montrer : qui est attesté, ce qu'un agent reçoit comme identité, et le fait que ça se renouvelle tout seul."
-
 ### Étape 1 — "Qui le server connaît-il ?"
 
 ```bash
@@ -160,7 +154,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
    -socketPath /tmp/spire-server/private/api.sock'
 ```
 
-**À dire** : "Le server SPIRE connaît 2 agents — un par workload. Chacun a prouvé son identité via un join_token à usage unique au premier démarrage."
+> Le server SPIRE connaît 2 agents, un par workload. Chacun a prouvé son identité via un join_token à usage unique au premier démarrage.
 
 ### Étape 2 — "Quelles règles d'identité sont posées ?"
 
@@ -170,9 +164,9 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
    -socketPath /tmp/spire-server/private/api.sock'
 ```
 
-**À dire** : "Pour chaque workload, une règle dit : 'tout process avec cet UID précis sur ce nœud reçoit cette identité'. C'est vérifié par SPIRE, pas déclaré par le process."
+> Pour chaque workload, une règle dit : 'tout process avec cet UID précis sur ce nœud reçoit cette identité'. C'est vérifié par SPIRE, pas déclaré par le process.
 
-### Étape 3 — "Le process récupère son identité" (moment central)
+### Étape 3 — "Le process récupère son identité"
 
 ```bash
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
@@ -189,9 +183,9 @@ SVID Valid After:       2026-06-24 10:15:00 +0000 UTC
 SVID Valid Until:       2026-06-24 10:20:00 +0000 UTC   ← TTL 5 minutes
 ```
 
-**À dire** : "Ce process obtient un certificat X.509 sans mot de passe ni clé. L'agent l'a délivré car il a vérifié que le process tourne avec le bon UID, exactement comme la règle posée à l'étape 2."
+> Ce process obtient un certificat X.509 sans mot de passe ni clé. L'agent l'a délivré car il a vérifié que le process tourne avec le bon UID, comme la règle posée à l'étape 2.
 
-### Étape 4 — le renouvellement automatique (wow moment)
+### Étape 4 — le renouvellement automatique
 
 ```bash
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
@@ -204,21 +198,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
    done'
 ```
 
-**Ce qu'il faut observer** : le SPIFFE ID ne change jamais. Le `SVID Valid Until` saute en avant entre deux relevés — preuve du renouvellement automatique.
-
-**Grille de lecture** : comparer le **temps restant** (`Valid Until` - heure actuelle) entre deux relevés. S'il augmente au lieu de diminuer → un renouvellement a eu lieu.
-
-**À dire** : "Regardez le Valid Until — il vient de sauter en avant tout seul. Ce certificat se renouvelle automatiquement, avant même d'expirer."
-
-**Astuce** : lancer cette boucle en début de soutenance, y revenir plus tard quand un renouvellement a eu lieu.
-
-### Étape 5 (optionnel) — forcer un renouvellement visible sur Grafana
-
-```bash
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl restart spire-agent'
-```
-
-**À dire** : "Je force une ré-attestation — le compteur 'SPIRE - Renouvellements auto' monte dans Grafana."
+> Le Valid Until vient de sauter en avant tout seul. Ce certificat se renouvelle automatiquement, avant même d'expirer.
 
 ---
 
@@ -325,7 +305,7 @@ id ubuntu
 
 ## Troubleshooting
 
-| Piège | Cause | Solution |
+| Erreur | Cause | Solution |
 |---|---|---|
 | Agent ne démarre pas | Join token expiré (TTL 1h) | Rejouer `ansible-playbook spire.yml` - régénère un token |
 | Socket non créée | Service pas encore prêt | `wait_for` dans Ansible attend jusqu'à 30s |
