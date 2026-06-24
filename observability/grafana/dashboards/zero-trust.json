@@ -74,7 +74,7 @@
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "rate(vault_core_handle_request_count[1m])",
+          "expr": "rate(vault_barrier_get_count[1m])",
           "legendFormat": "req/s"
         }
       ]

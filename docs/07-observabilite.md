@@ -10,7 +10,7 @@ laptop (10.0.0.1)
 └── grafana    :3000   ← dashboard zero-trust
 
 VMs
-├── vault-server  10.0.0.10:8200  /v1/sys/metrics  (token prometheus-metrics)
+├── vault-server  10.0.0.10:8200  /v1/sys/metrics  (unauthenticated_metrics_access)
 ├── spire-server  10.0.0.11:8088  /metrics          (ufw 10.0.0.0/24)
 ├── workload-a    10.0.0.20:8088  /metrics          (ufw 10.0.0.0/24)
 └── workload-b    10.0.0.21:8088  /metrics          (ufw 10.0.0.0/24)
@@ -45,9 +45,9 @@ make obs-status  # état des conteneurs
 |---|---|---|
 | **Vault - Statut** | `vault_core_active` | `Actif` (vert) = unsealed et leader HA. `Sealed` (rouge) = Vault a redémarré, il faut `make vault-unseal`. |
 | **Vault - Leases actifs** | `vault_expire_num_leases` | Credentials dynamiques vivants (DB, SSH OTP). Monte quand on génère des secrets, descend après révocation ou expiration. |
-| **Vault - Requêtes/s** | `rate(vault_core_handle_request_count[1m])` | Activité globale de Vault. Spike visible lors de toute opération de démo. |
+| **Vault - Requêtes/s** | `rate(vault_barrier_get_count[1m])` | Activité globale de Vault (opérations storage). Spike visible lors de toute opération de démo. |
 
-**Auth Prometheus** : token read-only (`prometheus-metrics` policy, TTL 1 an) stocké dans `observability/prometheus/.vault-token`. Créé automatiquement par `ansible/roles/vault-server/tasks/bootstrap.yml`. Ne jamais committer ce fichier (gitignored).
+**Auth Prometheus** : accès non-authentifié aux métriques via `unauthenticated_metrics_access = true` dans le bloc `listener` de `vault.hcl`. Aucun token nécessaire.
 
 ---
 
@@ -89,7 +89,6 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl restart spire-agent'
 
 | Secret | Emplacement | Usage |
 |---|---|---|
-| Token Prometheus-Vault | `observability/prometheus/.vault-token` | Lecture `/v1/sys/metrics` uniquement |
 | Grafana admin | `admin` / `admin` | Interface locale uniquement |
 
 ## Fichiers
@@ -98,8 +97,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl restart spire-agent'
 observability/
 ├── docker-compose.yml              # Prometheus + Grafana, network_mode: host
 ├── prometheus/
-│   ├── prometheus.yml              # 4 scrape jobs (vault, spire-server, spire-agent x2)
-│   └── .vault-token                # gitignored - token read-only Prometheus
+│   └── prometheus.yml              # 4 scrape jobs (vault, spire-server, spire-agent x2)
 └── grafana/
     ├── provisioning/
     │   ├── datasources/prometheus.yml

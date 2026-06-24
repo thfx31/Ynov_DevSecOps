@@ -7,7 +7,7 @@ terraform {
   }
 }
 
-# Disque VM - copie complète de l'image Packer
+# Disque VM
 resource "libvirt_volume" "vm_disk" {
   name   = "${var.name}.qcow2"
   pool   = var.pool
@@ -15,7 +15,7 @@ resource "libvirt_volume" "vm_disk" {
   format = "qcow2"
 }
 
-# Cloud-init ISO - créé et uploadé dans le pool en une seule ressource (0.7.x)
+# Cloud-init ISO
 resource "libvirt_cloudinit_disk" "vm_cloudinit" {
   name   = "${var.name}-cloudinit.iso"
   pool   = var.pool
@@ -39,7 +39,7 @@ resource "libvirt_domain" "vm" {
   vcpu      = var.vcpus
   autostart = true
 
-  # Attachement direct - pas de volume intermédiaire
+  # Attachement direct du disque et du cloud-init ISO
   cloudinit = libvirt_cloudinit_disk.vm_cloudinit.id
 
   network_interface {

@@ -1,0 +1,6 @@
+---
+- name: Apply common configuration (NTP, timezone)
+  hosts: all
+  become: true
+  roles:
+    - common

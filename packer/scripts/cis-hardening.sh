@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # CIS Ubuntu 24.04 LTS Benchmark - Level 1 hardening
 # Conçu pour tourner une seule fois pendant le build Packer.
-# Packer maintient sa connexion SSH existante même si sshd est reconfiguré.
 set -euo pipefail
 
 echo "=== [CIS L1] Ubuntu 24.04 hardening - début ==="
@@ -50,7 +49,7 @@ apt-get autoremove -yq
 # ─── 3. SYSCTL RESEAU ─────────────────────────────────────────────────────────
 echo "[3/9] Sysctl hardening..."
 cat > /etc/sysctl.d/60-cis.conf << 'EOF'
-# IP forwarding désactivé (workloads - pas de routage)
+# IP forwarding désactivé
 net.ipv4.ip_forward = 0
 net.ipv6.conf.all.forwarding = 0
 
@@ -152,8 +151,7 @@ AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-# Valider la config - NE PAS restart ici (Packer est connecté via password)
-# Le démarrage depuis l'image appliquera la config (clé SSH requise)
+# Valider la config
 sshd -t
 
 # ─── 5. AUDITD ────────────────────────────────────────────────────────────────

@@ -75,23 +75,11 @@ Elasticsearch, Oracle, MSSQL, InfluxDB.
 
 ### SSH secrets engine (OTP mode) - ce qu'on utilise
 
-```bash
-# Activer
-vault secrets enable ssh
-
-# Configurer le rôle OTP
-vault write ssh/roles/otp-role \
-  key_type=otp \
-  default_user=ubuntu \
-  cidr_list="10.0.0.0/24"
-
-# Générer un OTP
-vault write ssh/creds/otp-role ip=10.0.0.20
-# → key: b4e9-3fa1-c721-8d02 (valide une seule connexion)
-```
-
+Vault génère un mot de passe à usage unique pour chaque connexion SSH.
 Le workload cible doit avoir `vault-ssh-helper` installé comme module PAM.
 Chaque OTP est valide pour une seule connexion SSH - consommé = détruit.
+
+> Commandes de test et démo : voir [04-vault.md](04-vault.md#test-1---ssh-otp)
 
 ### SSH secrets engine (Signed Certificates mode) - alternatif
 
@@ -178,30 +166,11 @@ Vault supporte de nombreuses méthodes selon le contexte.
 
 ### AppRole - ce qu'on utilise pour les workloads
 
-```bash
-# Activer
-vault auth enable approle
+Chaque workload reçoit un `role_id` (public) et un `secret_id` (secret, injecté
+par Ansible) pour s'authentifier auprès de Vault. Le token obtenu est limité
+par les policies attachées au rôle.
 
-# Créer un rôle pour workload-a
-vault write auth/approle/role/workload-a \
-  secret_id_ttl=24h \
-  token_ttl=1h \
-  token_policies="app-policy"
-
-# Récupérer le roleId (non secret, peut être commité)
-vault read auth/approle/role/workload-a/role-id
-# → role_id: db02de05-fa39-4855-059b-67221c5c2f63
-
-# Générer un secretId (secret, injecté par Ansible/CI)
-vault write -f auth/approle/role/workload-a/secret-id
-# → secret_id: 6a174c20-f6de-a53c-74d2-6018fcceff64
-
-# S'authentifier (fait par l'app/Vault Agent)
-vault write auth/approle/login \
-  role_id="db02de05..." \
-  secret_id="6a174c20..."
-# → token: s.wnjA9haFc...
-```
+> Commandes de test et démo : voir [04-vault.md](04-vault.md#approle-authentification-applicative)
 
 ---
 
@@ -273,8 +242,8 @@ vault audit enable file file_path=/var/log/vault/audit.log
 Chaque entrée contient : timestamp, type, auth (qui), request (quoi), response.
 Les secrets ne sont jamais loggués en clair - ils sont hashés (HMAC-SHA256).
 
-Dans notre lab : l'audit log est exposé à Prometheus via vault-exporter
-pour le dashboard Grafana (Bloc 6).
+Dans notre lab : Prometheus scrape les métriques Vault directement via
+`/v1/sys/metrics` (accès non-authentifié activé dans le listener).
 
 ---
 

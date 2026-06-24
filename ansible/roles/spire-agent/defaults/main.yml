@@ -5,7 +5,7 @@ spire_data_dir: /opt/spire/data
 spire_conf_dir: /opt/spire/conf
 spire_log_level: INFO
 
-spire_trust_domain: example.org
+spire_trust_domain: devsecops.lab
 spire_server_address: "10.0.0.11"
 spire_server_port: 8081
 spire_agent_socket: /tmp/spire-agent/public/api.sock

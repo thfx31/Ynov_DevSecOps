@@ -33,7 +33,7 @@ Dans notre lab, on utilise des **X.509-SVIDs**.
 
 Un SVID X.509 contient :
 - Le **SPIFFE ID** dans le champ `Subject Alternative Name` (SAN) du certificat
-  ex : `spiffe://example.org/workload/app-a`
+  ex : `spiffe://devsecops.lab/workload/app-a`
 - Une **date d'expiration** (TTL = 5 minutes dans notre lab)
 - Une **signature** de la CA du SPIRE Server
 
@@ -57,7 +57,7 @@ spire-server (10.0.0.11)                workload-a (10.0.0.20)
 │  SQLite datastore       │             │  Obtient son SVID agent    │
 │  Registration entries   │             │  Expose Workload API       │
 │                         │             │  (socket Unix)             │
-│  spiffe://example.org/  │             │                            │
+│  spiffe://devsecops.lab/  │             │                            │
 │    node/workload-a  ────┼─────────────►  /tmp/spire-agent/         │
 │    workload/app-a       │             │    public/api.sock         │
 └─────────────────────────┘             │         │                  │
@@ -78,7 +78,7 @@ L'agent prouve qu'il tourne sur un nœud autorisé. Dans notre lab : join_token.
 - Le server génère un token unique par agent
 - L'agent le présente au server lors du premier démarrage
 - Le server vérifie le token, émet un **agent SVID** :
-  `spiffe://example.org/node/workload-a`
+  `spiffe://devsecops.lab/node/workload-a`
 - Le token est consommé (usage unique)
 
 En production : on utiliserait AWS IID, GCP GCE, TPM attestation, ou x509pop
@@ -106,15 +106,15 @@ Le workload reçoit le nouveau SVID via la Workload API sans interruption.
 ## Architecture dans notre lab
 
 ```
-trust domain : example.org
+trust domain : devsecops.lab
 
 Node SVIDs (agents) :
-  spiffe://example.org/node/workload-a  → SPIRE Agent sur workload-a
-  spiffe://example.org/node/workload-b  → SPIRE Agent sur workload-b
+  spiffe://devsecops.lab/node/workload-a  → SPIRE Agent sur workload-a
+  spiffe://devsecops.lab/node/workload-b  → SPIRE Agent sur workload-b
 
 Workload SVIDs :
-  spiffe://example.org/workload/app-a   → process ubuntu (UID 1000) sur workload-a
-  spiffe://example.org/workload/app-b   → process ubuntu (UID 1000) sur workload-b
+  spiffe://devsecops.lab/workload/app-a   → process ubuntu (UID 1000) sur workload-a
+  spiffe://devsecops.lab/workload/app-b   → process ubuntu (UID 1000) sur workload-b
 ```
 
 ---
@@ -144,21 +144,35 @@ Play 2 - SPIRE Agents (workload-a, workload-b) :
 
 ---
 
-## Procédure de tests
+## Démo
 
-### Prérequis
+> Fil conducteur : il n'y a pas un moment "avant/après" comme l'OTP Vault. C'est **3 preuves successives** : une identité existe → elle a été déduite, pas déclarée → elle ne reste jamais statique.
+
+### Pitch oral (30 secondes, avant de toucher au terminal)
+
+> "SPIRE donne une identité cryptographique à chaque process, sans aucun secret partagé. Cette identité est déduite de ce que le process **est** réellement — son UID — et elle se renouvelle automatiquement toutes les quelques minutes. Je vais montrer : qui est attesté, ce qu'un agent reçoit comme identité, et le fait que ça se renouvelle tout seul."
+
+### Étape 1 — "Qui le server connaît-il ?"
 
 ```bash
-# Vérifier que les services tournent
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 'sudo systemctl status spire-server --no-pager'
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl status spire-agent --no-pager'
+ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
+  'sudo /opt/spire/bin/spire-server agent list \
+   -socketPath /tmp/spire-server/private/api.sock'
 ```
 
-### Test 1 - Fetch d'un X.509-SVID
+**À dire** : "Le server SPIRE connaît 2 agents — un par workload. Chacun a prouvé son identité via un join_token à usage unique au premier démarrage."
 
-**Ce qu'on démontre :** un process peut récupérer son certificat d'identité
-cryptographique en interrogeant la socket locale. Aucun secret à gérer,  le
-SPIRE Agent sait qui est ce process grâce à l'attestation unix.
+### Étape 2 — "Quelles règles d'identité sont posées ?"
+
+```bash
+ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
+  'sudo /opt/spire/bin/spire-server entry show \
+   -socketPath /tmp/spire-server/private/api.sock'
+```
+
+**À dire** : "Pour chaque workload, une règle dit : 'tout process avec cet UID précis sur ce nœud reçoit cette identité'. C'est vérifié par SPIRE, pas déclaré par le process."
+
+### Étape 3 — "Le process récupère son identité" (moment central)
 
 ```bash
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
@@ -168,43 +182,43 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
 
 Résultat attendu :
 ```
-Received 1 svid after 12.462µs
+Received 1 svid after 15ms
 
-SPIFFE ID:              spiffe://example.org/workload/app-a
-SVID Valid After:       2026-06-13 10:00:00 +0000 UTC
-SVID Valid Until:       2026-06-13 10:05:00 +0000 UTC   ← TTL 5 minutes
-CA #1 Valid After:      2026-06-13 09:00:00 +0000 UTC
-CA #1 Valid Until:      2026-06-14 09:00:00 +0000 UTC
+SPIFFE ID:              spiffe://devsecops.lab/workload/app-a
+SVID Valid After:       2026-06-24 10:15:00 +0000 UTC
+SVID Valid Until:       2026-06-24 10:20:00 +0000 UTC   ← TTL 5 minutes
 ```
 
-Ce process a une identité cryptographique. Pas un token
-partagé mais un certificat lié à ce qu'il est. Il expire dans 5 minutes et sera
-renouvelé automatiquement.
+**À dire** : "Ce process obtient un certificat X.509 sans mot de passe ni clé. L'agent l'a délivré car il a vérifié que le process tourne avec le bon UID, exactement comme la règle posée à l'étape 2."
 
-### Test 2 - Renouvellement automatique
+### Étape 4 — le renouvellement automatique (wow moment)
 
 ```bash
-# Lancer en boucle : on voit le SVID se renouveler automatiquement
 ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
-  'watch -n30 "/opt/spire/bin/spire-agent api fetch x509 \
-   -socketPath /tmp/spire-agent/public/api.sock 2>&1 | grep -E \"SPIFFE|Until\""'
+  'while true; do
+     date "+%H:%M:%S"
+     /opt/spire/bin/spire-agent api fetch x509 \
+       -socketPath /tmp/spire-agent/public/api.sock 2>&1 | grep -E "SPIFFE|Until"
+     echo "---"
+     sleep 30
+   done'
 ```
 
-### Test 3 - Vérification des entries côté server
+**Ce qu'il faut observer** : le SPIFFE ID ne change jamais. Le `SVID Valid Until` saute en avant entre deux relevés — preuve du renouvellement automatique.
+
+**Grille de lecture** : comparer le **temps restant** (`Valid Until` - heure actuelle) entre deux relevés. S'il augmente au lieu de diminuer → un renouvellement a eu lieu.
+
+**À dire** : "Regardez le Valid Until — il vient de sauter en avant tout seul. Ce certificat se renouvelle automatiquement, avant même d'expirer."
+
+**Astuce** : lancer cette boucle en début de soutenance, y revenir plus tard quand un renouvellement a eu lieu.
+
+### Étape 5 (optionnel) — forcer un renouvellement visible sur Grafana
 
 ```bash
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
-  'sudo /opt/spire/bin/spire-server entry show \
-   -socketPath /tmp/spire-server/private/api.sock'
+ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 'sudo systemctl restart spire-agent'
 ```
 
-### Test 4 - Agents attestés
-
-```bash
-ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
-  'sudo /opt/spire/bin/spire-server agent list \
-   -socketPath /tmp/spire-server/private/api.sock'
-```
+**À dire** : "Je force une ré-attestation — le compteur 'SPIRE - Renouvellements auto' monte dans Grafana."
 
 ---
 
@@ -224,7 +238,7 @@ sudo /opt/spire/bin/spire-server healthcheck \
 # Lister tous les agents attestés (et leur SVID agent)
 sudo /opt/spire/bin/spire-server agent list \
   -socketPath /tmp/spire-server/private/api.sock
-# → SPIFFE ID: spiffe://example.org/node/workload-a
+# → SPIFFE ID: spiffe://devsecops.lab/node/workload-a
 # → Attestation type: join_token
 # → Expiration time: 2026-06-14 ...
 
@@ -235,13 +249,13 @@ sudo /opt/spire/bin/spire-server entry show \
 
 # Filtrer les entries d'un workload précis
 sudo /opt/spire/bin/spire-server entry show \
-  -spiffeID spiffe://example.org/workload/app-a \
+  -spiffeID spiffe://devsecops.lab/workload/app-a \
   -socketPath /tmp/spire-server/private/api.sock
 
 # Créer une registration entry (si absente)
 sudo /opt/spire/bin/spire-server entry create \
-  -spiffeID spiffe://example.org/workload/app-a \
-  -parentID spiffe://example.org/node/workload-a \
+  -spiffeID spiffe://devsecops.lab/workload/app-a \
+  -parentID spiffe://devsecops.lab/node/workload-a \
   -selector unix:uid:1000 \
   -socketPath /tmp/spire-server/private/api.sock
 # parentID = SVID de l'agent du nœud  /  selector = critère d'identité du process
@@ -258,7 +272,7 @@ sudo /opt/spire/bin/spire-server bundle show \
 
 # Générer un join token pour un nouvel agent
 sudo /opt/spire/bin/spire-server token generate \
-  -spiffeID spiffe://example.org/node/workload-a \
+  -spiffeID spiffe://devsecops.lab/node/workload-a \
   -socketPath /tmp/spire-server/private/api.sock
 # → Token: XXXX  (usage unique, TTL 1h)
 # Ce token est consommé à la première attestation de l'agent
@@ -275,7 +289,7 @@ sudo /opt/spire/bin/spire-server token generate \
 # Récupérer le X.509-SVID du process courant
 /opt/spire/bin/spire-agent api fetch x509 \
   -socketPath /tmp/spire-agent/public/api.sock
-# → SPIFFE ID: spiffe://example.org/workload/app-a
+# → SPIFFE ID: spiffe://devsecops.lab/workload/app-a
 # → SVID Valid Until: ... (TTL 5min dans notre lab)
 # → CA #1 Valid Until: ... (TTL 24h)
 

@@ -200,7 +200,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
   'sudo /opt/spire/bin/spire-server agent list -socketPath /tmp/spire-server/private/api.sock'
 ```
 
-✅ 2 agents listés : `spiffe://example.org/node/workload-a` et `spiffe://example.org/node/workload-b`
+✅ 2 agents listés : `spiffe://devsecops.lab/node/workload-a` et `spiffe://devsecops.lab/node/workload-b`
 
 ### 3.3 SPIRE agents actifs sur les workloads
 
@@ -220,7 +220,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.11 \
   'sudo /opt/spire/bin/spire-server entry show -socketPath /tmp/spire-server/private/api.sock'
 ```
 
-✅ 2 entries : `spiffe://example.org/app-a` et `spiffe://example.org/app-b`
+✅ 2 entries : `spiffe://devsecops.lab/app-a` et `spiffe://devsecops.lab/app-b`
 
 ### 3.5 SVID valide sur un workload
 
@@ -229,7 +229,7 @@ ssh -i ~/.ssh/devsecops ubuntu@10.0.0.20 \
   '/opt/spire/bin/spire-agent api fetch x509 -socketPath /tmp/spire-agent/public/api.sock 2>&1 | head -5'
 ```
 
-✅ `Received 1 svid` avec `spiffe://example.org/workload/app-a`
+✅ `Received 1 svid` avec `spiffe://devsecops.lab/workload/app-a`
 
 ### 3.6 Métriques SPIRE accessibles
 

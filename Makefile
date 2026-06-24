@@ -5,6 +5,7 @@ VAULT_ADDR        := http://10.0.0.10:8200
 SSH_KEY           := ~/.ssh/devsecops
 VAULT_SERVER      := ubuntu@10.0.0.10
 WORKLOAD_A        := ubuntu@10.0.0.20
+WORKLOAD_B        := ubuntu@10.0.0.21
 
 export BOUNDARY_ADDR
 export VAULT_ADDR
@@ -46,7 +47,10 @@ tf-destroy: ## Détruire toutes les VMs (irréversible)
 
 # ── 3. Ansible ───────────────────────────────────────────────────────────────
 
-.PHONY: ansible-vault ansible-spire ansible-boundary ansible-all
+.PHONY: ansible-common ansible-vault ansible-spire ansible-boundary ansible-all
+
+ansible-common: ## Appliquer la baseline commune (NTP, timezone)
+	cd ansible && ansible-playbook playbooks/common.yml -v
 
 ansible-all: ## Déployer tous les blocs dans l'ordre (-K = sudo localhost)
 	cd ansible && ansible-playbook playbooks/site.yml -v -K
@@ -193,7 +197,7 @@ boundary-targets: ## Lister les targets Boundary et leurs IDs
 	  -scope-id=$(BOUNDARY_PROJECT) -token env://BOUNDARY_TOKEN -format=json \
 	  | jq -r '.items[] | "  \(.name)\t\(.id)\t\(.address)"'
 
-# ── Démo soutenance ──────────────────────────────────────────────────────────
+# ── Démo ──────────────────────────────────────────────────────────
 
 .PHONY: demo-otp demo-db demo-transit demo-spire demo-status demo-boundary
 
@@ -251,51 +255,47 @@ demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	 echo ""; \
 	 echo "→ La clé ne quitte jamais Vault. Le dump DB est illisible sans accès Vault."
 
-demo-spire: ## Démo SPIRE : identité zero-trust sans secret statique
+demo-spire: ## Démo SPIRE : identité zero-trust en 4 étapes
 	@echo ""
 	@echo "=== SPIRE - Identité Zero-Trust (SPIFFE) ==="
-	@echo "Problème : comment un service prouve son identité sans mot de passe ni clé API ?"
-	@echo "Réponse  : SPIRE atteste le noeud et délivre un certificat X.509 à courte durée de vie."
 	@echo ""
-	@echo "── 1. Déclaration : qui a droit à quelle identité ──"
-	@echo "   (Registration entries sur le SPIRE server)"
-	@echo ""
-	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
-	  'sudo /opt/spire/bin/spire-server entry show \
-	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
-	  | grep -E "Entry ID|SPIFFE ID|Selector|Parent ID" | sed 's/^/  /'
-	@echo ""
-	@echo "── 2. Attestation : quels agents ont prouvé leur identité ──"
-	@echo "   (Le SPIRE server vérifie le noeud avant de délivrer des SVIDs)"
+	@echo "── Étape 1 : Agent list ──"
+	@echo '   "Le server SPIRE connaît 2 agents — un par workload.'
+	@echo '    Chacun a prouvé son identité via un join_token à usage unique au 1er démarrage."'
 	@echo ""
 	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
 	  'sudo /opt/spire/bin/spire-server agent list \
 	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
-	  | grep -E "SPIFFE ID|Attestation|Serial" | sed 's/^/  /'
-	@echo ""
-	@echo "── 3. Preuve : le certificat SVID de workload-a ──"
-	@echo "   (Certificat X.509 délivré automatiquement, renouvelé avant expiration)"
-	@echo ""
-	@ssh -i $(SSH_KEY) $(WORKLOAD_A) \
-	  'mkdir -p /tmp/svid \
-	   && /opt/spire/bin/spire-agent api fetch x509 \
-	   -socketPath /tmp/spire-agent/public/api.sock -write /tmp/svid 2>/dev/null \
-	   && openssl x509 -in /tmp/svid/svid.0.pem -noout -subject -issuer -dates \
-	   && rm -rf /tmp/svid' \
 	  | sed 's/^/  /'
 	@echo ""
-	@echo "── 4. Confiance : la CA racine SPIRE (trust bundle) ──"
-	@echo "   (Tous les workloads qui partagent ce bundle peuvent faire du mTLS)"
+	@echo "── Étape 2 : Entry show ──"
+	@echo '   "Pour chaque workload, une règle dit : tout process avec cet UID sur ce noeud'
+	@echo '    reçoit cette identité. C'\''est vérifié par SPIRE, pas déclaré par le process."'
 	@echo ""
 	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
-	  'sudo /opt/spire/bin/spire-server bundle show \
+	  'sudo /opt/spire/bin/spire-server entry show \
 	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
-	  | openssl x509 -noout -subject -dates 2>/dev/null | sed 's/^/  /'
+	  | sed 's/^/  /'
 	@echo ""
-	@echo "── Résumé ──"
-	@echo "→ Aucun secret dans les fichiers de config : l'identité vient du noeud, pas d'un mot de passe."
-	@echo "→ Certificats à durée de vie courte (~1h) : un SVID volé expire vite."
-	@echo "→ Renouvellement automatique : pas d'intervention humaine, pas de certificat oublié."
+	@echo "── Étape 3 : API fetch ──"
+	@echo '   "Ce process obtient un certificat X.509 sans mot de passe ni clé.'
+	@echo '    L'\''agent l'\''a délivré car il a vérifié que le process tourne avec le bon UID."'
+	@echo ""
+	@ssh -i $(SSH_KEY) $(WORKLOAD_A) \
+	  '/opt/spire/bin/spire-agent api fetch x509 \
+	   -socketPath /tmp/spire-agent/public/api.sock 2>&1' \
+	  | sed 's/^/  /'
+	@ssh -i $(SSH_KEY) $(WORKLOAD_B) \
+	  '/opt/spire/bin/spire-agent api fetch x509 \
+	   -socketPath /tmp/spire-agent/public/api.sock 2>&1' \
+	  | sed 's/^/  /'
+	@echo ""
+	@echo "── Étape 4 : le renouvellement automatique  ──"
+	@echo '   "Le SPIFFE ID ne change jamais. Le Valid Until, lui, saute en avant'
+	@echo '    tout seul — preuve que le certificat se renouvelle avant expiration."'
+	@echo ""
+	@echo "→ Lancer cette boucle et observer le Valid Until changer :"
+	@echo '  ssh -i $(SSH_KEY) $(WORKLOAD_A) '\''while true; do date "+%H:%M:%S"; /opt/spire/bin/spire-agent api fetch x509 -socketPath /tmp/spire-agent/public/api.sock 2>&1 | grep -E "SPIFFE|Until"; echo "---"; sleep 30; done'\'''
 	@echo ""
 
 demo-status: ## Etat général de la plateforme (Vault + SPIRE + Boundary)

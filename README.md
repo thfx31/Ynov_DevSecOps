@@ -30,16 +30,19 @@ Plateforme **zero-trust** sur VMs Linux avec CI/CD et IaC sécurisées.
 ## Quick start
 
 ```bash
-# 1. Build l'image durcie (nécessite KVM)
-cd packer && packer build ubuntu-cis.pkr.hcl
+# 1. Clé SSH
+ssh-keygen -t ed25519 -f ~/.ssh/devsecops -N ""
 
-# 2. Provisionner les VMs
-cd terraform && terraform apply
+# 2. Build l'image durcie (nécessite KVM)
+make packer-build
 
-# 3. Configurer tous les services
-cd ansible && ansible-playbook playbooks/site.yml -v
+# 3. Provisionner les VMs
+make tf-init && make tf-apply
 
-# 4. Démarrer l'observabilité (laptop)
+# 4. Configurer tous les services
+make ansible-all   # NTP + Vault + SPIRE + Boundary
+
+# 5. Démarrer l'observabilité (laptop)
 make obs-up   # Prometheus :9090 - Grafana :3000
 ```
 
@@ -48,16 +51,20 @@ make obs-up   # Prometheus :9090 - Grafana :3000
 ```bash
 make infra-up        # Démarrer les VMs après reboot host
 make vault-unseal    # Unseal Vault après redémarrage
+make vault-token     # Afficher le root token Vault
+make ansible-common  # Appliquer la baseline NTP/timezone
 make obs-up          # Lancer Prometheus + Grafana
+make check           # Go/no-go rapide avant démo
 make help            # Liste de toutes les commandes
 ```
 
-## Démos soutenance
+## Démos
 
 ```bash
 make demo-otp        # Vault SSH OTP - connexion sans clé, rejeu refusé
 make demo-db         # Vault DB - credentials PostgreSQL éphémères, révocation live
 make demo-transit    # Vault Transit - chiffrement as a service
+make demo-spire      # SPIRE - identité zero-trust en 4 étapes
 make demo-boundary   # Boundary - SSH sans connaître l'IP cible
 make demo-status     # Etat global Vault
 ```
@@ -74,7 +81,8 @@ make demo-status     # Etat global Vault
 | [06 - CI/CD](docs/06-ci.md) | Pipeline GitHub Actions, choix techniques |
 | [07 - Observabilité](docs/07-observabilite.md) | Prometheus + Grafana, métriques, dashboard |
 | [08 - Sources](docs/08-sources.md) | Références et bibliographie |
-| [09 - Vault référence](docs/09-vault-reference.md) | Guide opérateur complet Vault |
+| [09 - Vault référence](docs/09-vault-reference.md) | Guide conceptuel Vault (KV, dynamic secrets, Transit, auth, policies) |
+| [10 - Protocole test](docs/10-protocole-test.md) | Checklist de validation post-déploiement |
 
 ## Auteur
 - Projet réalisé par Thomas FAUROUX
