@@ -232,7 +232,7 @@ demo-db: ## Génère des credentials PostgreSQL dynamiques + commandes de vérif
 	 echo "→ Lister les leases actifs :"; \
 	 echo "  VAULT_TOKEN=$$TOKEN vault list sys/leases/lookup/database/creds/app-role"; \
 	 echo ""; \
-	 echo "→ Révoquer le lease (le user PostgreSQL disparaît) :"; \
+	 echo "→ Révoquer le lease :"; \
 	 echo "  VAULT_TOKEN=$$TOKEN vault lease revoke $$LEASE"; \
 	 echo ""; \
 	 echo "→ Re-tenter la connexion après révocation :"; \
@@ -255,47 +255,34 @@ demo-transit: ## Chiffre et déchiffre un IBAN via Transit engine
 	 echo ""; \
 	 echo "→ La clé ne quitte jamais Vault. Le dump DB est illisible sans accès Vault."
 
-demo-spire: ## Démo SPIRE : identité zero-trust en 4 étapes
+demo-spire: ## Démo SPIRE : identité zero-trust en 3 étapes
 	@echo ""
-	@echo "=== SPIRE - Identité Zero-Trust (SPIFFE) ==="
+	@echo "=== SPIRE STATUS ==="
 	@echo ""
-	@echo "── Étape 1 : Agent list ──"
-	@echo '   "Le server SPIRE connaît 2 agents — un par workload.'
-	@echo '    Chacun a prouvé son identité via un join_token à usage unique au 1er démarrage."'
-	@echo ""
+	@echo "── 1. ATTESTED AGENTS (Node Identity) ──"
 	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
 	  'sudo /opt/spire/bin/spire-server agent list \
 	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
 	  | sed 's/^/  /'
 	@echo ""
-	@echo "── Étape 2 : Entry show ──"
-	@echo '   "Pour chaque workload, une règle dit : tout process avec cet UID sur ce noeud'
-	@echo '    reçoit cette identité. C'\''est vérifié par SPIRE, pas déclaré par le process."'
-	@echo ""
+	@echo "── 2. REGISTRATION ENTRIES (Authorization Policies) ──"
 	@ssh -i $(SSH_KEY) ubuntu@10.0.0.11 \
 	  'sudo /opt/spire/bin/spire-server entry show \
 	   -socketPath /tmp/spire-server/private/api.sock 2>/dev/null' \
 	  | sed 's/^/  /'
 	@echo ""
-	@echo "── Étape 3 : API fetch ──"
-	@echo '   "Ce process obtient un certificat X.509 sans mot de passe ni clé.'
-	@echo '    L'\''agent l'\''a délivré car il a vérifié que le process tourne avec le bon UID."'
-	@echo ""
+	@echo "── 3. DYNAMIC API FETCH (X.509 SVIDs) ──"
+	@echo "  [Workload A]"
 	@ssh -i $(SSH_KEY) $(WORKLOAD_A) \
 	  '/opt/spire/bin/spire-agent api fetch x509 \
 	   -socketPath /tmp/spire-agent/public/api.sock 2>&1' \
-	  | sed 's/^/  /'
+	  | sed 's/^/    /'
+	@echo ""
+	@echo "  [Workload B]"
 	@ssh -i $(SSH_KEY) $(WORKLOAD_B) \
 	  '/opt/spire/bin/spire-agent api fetch x509 \
 	   -socketPath /tmp/spire-agent/public/api.sock 2>&1' \
-	  | sed 's/^/  /'
-	@echo ""
-	@echo "── Étape 4 : le renouvellement automatique  ──"
-	@echo '   "Le SPIFFE ID ne change jamais. Le Valid Until, lui, saute en avant'
-	@echo '    tout seul — preuve que le certificat se renouvelle avant expiration."'
-	@echo ""
-	@echo "→ Lancer cette boucle et observer le Valid Until changer :"
-	@echo '  ssh -i $(SSH_KEY) $(WORKLOAD_A) '\''while true; do date "+%H:%M:%S"; /opt/spire/bin/spire-agent api fetch x509 -socketPath /tmp/spire-agent/public/api.sock 2>&1 | grep -E "SPIFFE|Until"; echo "---"; sleep 30; done'\'''
+	  | sed 's/^/    /'
 	@echo ""
 
 demo-status: ## Etat général de la plateforme (Vault + SPIRE + Boundary)
