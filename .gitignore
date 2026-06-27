@@ -1,6 +1,3 @@
-CONTEXT.md
-prez.txt
-
 # Terraform
 terraform/.terraform/
 terraform/.terraform.lock.hcl
